@@ -26,6 +26,7 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
 - **Juletema**: toppfelt i granfarge med diskrete, statiske snøfnugg og nedtelling til julaften. Ingen animasjon,
   og kontrasten er tilpasset WCAG også i mørk modus.
+- **Lyst eller mørkt tema**: velges i ⋯-menyen (Lyst tema / Mørkt tema / Følg telefonen). Valget huskes på enheten.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 
 ## Lagring og personvern

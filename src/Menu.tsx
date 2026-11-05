@@ -10,6 +10,8 @@ export type MenuEntry =
       disabled?: boolean;
       /** For av/på-valg (aria-pressed). */
       pressed?: boolean;
+      /** Ett av flere gjensidig utelukkende valg: viser hake i stedet for «På/Av». */
+      choice?: boolean;
     }
   | 'separator'
   | false
@@ -107,7 +109,14 @@ export function MoreMenu({
                 >
                   {entry.icon && <Icon name={entry.icon} />}
                   <span>{entry.label}</span>
-                  {entry.pressed !== undefined && <span className="menu-state">{entry.pressed ? 'På' : 'Av'}</span>}
+                  {entry.pressed !== undefined &&
+                    (entry.choice ? (
+                      <span className="menu-state" aria-hidden="true">
+                        {entry.pressed ? '✓' : ''}
+                      </span>
+                    ) : (
+                      <span className="menu-state">{entry.pressed ? 'På' : 'Av'}</span>
+                    ))}
                 </button>
               </li>
             ),
