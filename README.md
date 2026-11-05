@@ -33,8 +33,14 @@ en sikkerhetskopi.
 - **Påminnelse** når du ikke har tatt sikkerhetskopi (etter 10 endringer), eller når det er gått mer enn
   7 dager siden forrige kopi og det er gjort endringer siden.
 
-**Krav til publisering:** PWA krever HTTPS. Appen er statisk (`dist/`) og kan publiseres på GitHub Pages,
-Netlify eller Cloudflare Pages. Disse serverer bare filene og ser aldri dataene dine.
+**Publisering:** Appen publiseres automatisk til GitHub Pages ved hver push til `main`
+(`.github/workflows/deploy.yml`): https://npgoril-oss.github.io/Julegavelisten/
+GitHub Pages leverer bare de statiske filene og ser aldri dataene dine.
+
+Engangsoppsett i repoet: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+**Installere på Android:** Åpne adressen i Chrome. Velg deretter «Installer på hjemskjermen» under
+«Lagring og sikkerhetskopi», eller *⋮ → Installer app* i Chrome-menyen.
 
 ## Utvikling
 ```bash
