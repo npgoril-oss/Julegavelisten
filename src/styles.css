@@ -26,11 +26,13 @@
   --pine-text: #ffffff;
   --gold: #f2c14e;       /* nedtelling, mørk tekst 9:1 */
   --gold-text: #3a2a00;
-  --ribbon: #b3261e;     /* dekorativ kant på personkort */
+  --ribbon: #b3261e;     /* rød kant under toppfeltet */
+  --person-edge: #1e6b3a; /* tynn grønn kant på personkort */
   color-scheme: light dark;
 }
+/* Mørkt tema: brukes når telefonen er i mørk modus (med mindre «Lys» er valgt), eller når «Mørk» er valgt. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #141715;
     --card: #1f2321;
     --text: #e8ebe9;
@@ -51,8 +53,34 @@
     --error: #ff9b93;
     --pine: #0d2b1e;
     --ribbon: #c4453d;
+    --person-edge: #4f9a6a;
   }
 }
+:root[data-theme='dark'] {
+  --bg: #141715;
+  --card: #1f2321;
+  --text: #e8ebe9;
+  --muted: #a7aeaa;
+  --divider: #333936;
+  --control: #8b928e;
+  --accent: #f07a72;
+  --accent-text: #1a0f0e;
+  --danger: #ff9b93;
+  --focus: #8ab4ff;
+  --done: #8fd6a6;
+  --done-bg: #1d3526;
+  --warn: #f4c07a;
+  --warn-bg: #3b2c16;
+  --info: #a9c3ee;
+  --info-bg: #1e2a3d;
+  --track: #3c4340;
+  --error: #ff9b93;
+  --pine: #0d2b1e;
+  --ribbon: #c4453d;
+  --person-edge: #4f9a6a;
+  color-scheme: dark;
+}
+:root[data-theme='light'] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -231,7 +259,7 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 /* ---------- Person ---------- */
 .persons { display: flex; flex-direction: column; gap: 8px; }
 .person {
-  background: var(--card); border: 1px solid var(--divider); border-top: 3px solid var(--ribbon);
+  background: var(--card); border: 1px solid var(--divider); border-top: 2px solid var(--person-edge);
   border-radius: 10px; padding: 4px 6px 8px;
 }
 .person.collapsed { padding-bottom: 4px; }

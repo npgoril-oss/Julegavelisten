@@ -5,6 +5,7 @@ import { StoragePanel } from './StoragePanel';
 import { UpdatePrompt } from './UpdatePrompt';
 import { Icon } from './icons';
 import { MoreMenu } from './Menu';
+import { applyTheme, getThemePref, setThemePref, type ThemePref } from './theme';
 import { DragRoot, SortableGroup, dragId, type DropResult } from './Sortable';
 import { PersonCard } from './PersonCard';
 import { ProgressBar, announce, announcer, budgetInfo, focusRequest, giftLabel, type MoveTarget } from './ui';
@@ -27,6 +28,13 @@ export default function App() {
   const [adding, setAdding] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [message, setMessage] = useState('');
+  const [theme, setTheme] = useState<ThemePref>(getThemePref);
+  useEffect(() => applyTheme(theme), [theme]);
+  const chooseTheme = (pref: ThemePref) => {
+    setThemePref(pref);
+    setTheme(pref);
+    announce(pref === 'system' ? 'Tema følger telefonen.' : pref === 'dark' ? 'Mørkt tema valgt.' : 'Lyst tema valgt.');
+  };
   announcer.fn = (msg) => {
     // Tøm først så samme melding to ganger på rad også leses opp.
     setMessage('');
@@ -198,7 +206,7 @@ export default function App() {
               </button>
             )}
             <MoreMenu
-              label="Flere valg for listen"
+              label="Flere valg"
               entries={[
                 { label: 'Sorter A–Å', icon: 'sort', disabled: data.persons.length < 2, onSelect: sortAlphabetically },
                 {
@@ -206,6 +214,16 @@ export default function App() {
                   icon: 'eye',
                   pressed: showArchived,
                   onSelect: () => setShowArchived((v) => !v),
+                },
+                'separator',
+                { label: 'Lyst tema', icon: 'sun', pressed: theme === 'light', choice: true, onSelect: () => chooseTheme('light') },
+                { label: 'Mørkt tema', icon: 'moon', pressed: theme === 'dark', choice: true, onSelect: () => chooseTheme('dark') },
+                {
+                  label: 'Følg telefonen',
+                  icon: 'phone',
+                  pressed: theme === 'system',
+                  choice: true,
+                  onSelect: () => chooseTheme('system'),
                 },
               ]}
             />
