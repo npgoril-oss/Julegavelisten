@@ -44,16 +44,28 @@ describe('ferdig-status (alt kjøpt, uavhengig av budsjett)', () => {
   });
 });
 
-describe('budsjettindikator (± 100 kr)', () => {
-  it('under, innenfor og over', () => {
-    expect(budgetState(gift(500, [item(399, true)]))).toBe('under');
-    expect(budgetState(gift(500, [item(400, true)]))).toBe('within');
-    expect(budgetState(gift(500, [item(600, true)]))).toBe('within');
-    expect(budgetState(gift(500, [item(601, true)]))).toBe('over');
+describe('budsjettindikator (± 10 %)', () => {
+  it('under, innenfor og over ved budsjett 500 (grense ± 50 kr)', () => {
+    expect(budgetState(gift(500, [item(449, true)]))).toBe('under');
+    expect(budgetState(gift(500, [item(450, true)]))).toBe('within');
+    expect(budgetState(gift(500, [item(550, true)]))).toBe('within');
+    expect(budgetState(gift(500, [item(551, true)]))).toBe('over');
     expect(budgetState(gift(null, [item(601, true)]))).toBe('none');
   });
+  it('skalerer med budsjettet: 150 kr-budsjett tåler bare ± 15 kr', () => {
+    expect(budgetState(gift(150, [item(165, true)]))).toBe('within');
+    expect(budgetState(gift(150, [item(219, true)]))).toBe('over');
+  });
+  it('store budsjett får større slingringsmonn: 3000 kr tåler ± 300 kr', () => {
+    expect(budgetState(gift(3000, [item(2700, true)]))).toBe('within');
+    expect(budgetState(gift(3000, [item(2699, true)]))).toBe('under');
+  });
+  it('budsjett 0: alt kjøpt er over', () => {
+    expect(budgetState(gift(0, [item(1, true)]))).toBe('over');
+    expect(budgetState(gift(0, []))).toBe('within');
+  });
   it('teller bare kjøpte items', () => {
-    expect(budgetState(gift(500, [item(450, true), item(900, false)]))).toBe('within');
+    expect(budgetState(gift(500, [item(480, true), item(900, false)]))).toBe('within');
   });
 });
 
@@ -106,6 +118,22 @@ describe('flytte ting mellom gaver', () => {
     const d = reducer(setup(), { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'g2' });
     expect(d.gifts.find((g) => g.id === 'g1')!.items).toHaveLength(0);
     expect(d.gifts.find((g) => g.id === 'g2')!.items[0]).toMatchObject({ id: 'i1', name: 'Skjerf', price: 250, purchased: true });
+  });
+  it('kan sette inn på en bestemt plass i målgaven', () => {
+    let d = setup();
+    d = reducer(d, { type: 'item/add', giftId: 'g2', id: 'a' });
+    d = reducer(d, { type: 'item/add', giftId: 'g2', id: 'b' });
+    d = reducer(d, { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'g2', index: 1 });
+    expect(d.gifts.find((g) => g.id === 'g2')!.items.map((i) => i.id)).toEqual(['a', 'i1', 'b']);
+  });
+  it('endrer rekkefølge på ting i en gave', () => {
+    let d = setup();
+    d = reducer(d, { type: 'item/add', giftId: 'g1', id: 'i2' });
+    d = reducer(d, { type: 'item/add', giftId: 'g1', id: 'i3' });
+    d = reducer(d, { type: 'item/reorder', giftId: 'g1', ids: ['i3', 'i1', 'i2'] });
+    expect(d.gifts.find((g) => g.id === 'g1')!.items.map((i) => i.id)).toEqual(['i3', 'i1', 'i2']);
+    // ugyldig liste ignoreres
+    expect(reducer(d, { type: 'item/reorder', giftId: 'g1', ids: ['i3'] })).toEqual(d);
   });
   it('gjør ingenting ved ukjent mål eller samme gave', () => {
     const d = setup();

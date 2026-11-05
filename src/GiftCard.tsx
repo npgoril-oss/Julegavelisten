@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState, type Dispatch } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import type { Gift, Person } from './types';
 import { newId, type Action } from './store';
 import { allReceived, formatKr, isGiftDone, plannedSum, purchasedSum } from './logic';
 import { Icon } from './icons';
 import { MoreMenu } from './Menu';
-import { DragHandle, SortableItem } from './Sortable';
+import { DragHandle, GiftDropTarget, SortableGroup, SortableItem, dragId } from './Sortable';
 import { ItemRow } from './ItemRow';
 import { MoneyInput, ProgressBar, announce, budgetInfo, focusRequest, giftLabel, type MoveTarget } from './ui';
 
@@ -70,7 +71,7 @@ export function GiftCard({
   };
 
   return (
-    <SortableItem id={gift.id} className={`gift ${done ? 'is-done' : ''}`}>
+    <SortableItem kind="gift" id={gift.id} parentId={person.id} label={giftName} className={`gift ${done ? 'is-done' : ''}`}>
       <div className="gift-head">
         {count > 1 && <DragHandle label={`Endre rekkefølge: ${giftName}`} />}
         <h4 className="gift-name">
@@ -178,18 +179,28 @@ export function GiftCard({
       {gift.items.length > 0 && (
         <>
           <div className="item-legend" aria-hidden="true">
+            <span />
             <span>Kjøpt</span>
             <span />
             <span className="num">Pris</span>
             <span>Mottatt</span>
             <span />
           </div>
+          <SortableGroup ids={gift.items.map((i) => dragId('item', i.id))}>
           <ul className="items" aria-label={`Ting i ${giftName}`}>
             {gift.items.map((i, n) => (
               <ItemRow
                 key={i.id}
                 item={i}
                 index={n + 1}
+                count={gift.items.length}
+                onMove={(delta) => {
+                  const ids = gift.items.map((x) => x.id);
+                  const to = n + delta;
+                  if (to < 0 || to >= ids.length) return;
+                  dispatch({ type: 'item/reorder', giftId: gift.id, ids: arrayMove(ids, n, to) });
+                  announce(`${i.name.trim() || `Ting ${n + 1}`} flyttet til plass ${to + 1} av ${ids.length}.`);
+                }}
                 gift={gift}
                 person={person}
                 year={year}
@@ -200,8 +211,10 @@ export function GiftCard({
               />
             ))}
           </ul>
+          </SortableGroup>
         </>
       )}
+      <GiftDropTarget giftId={gift.id} personId={person.id} label={giftName}>
       <button
         ref={addItemRef}
         className="add-item ghost with-icon"
@@ -214,6 +227,7 @@ export function GiftCard({
         <Icon name="plus" />
         Legg til ting<span className="visually-hidden"> i {giftName}</span>
       </button>
+      </GiftDropTarget>
     </SortableItem>
   );
 }

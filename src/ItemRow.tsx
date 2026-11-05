@@ -4,6 +4,7 @@ import { newId, type Action } from './store';
 import { formatKr } from './logic';
 import { Icon } from './icons';
 import { MoreMenu } from './Menu';
+import { DragHandle, SortableItem } from './Sortable';
 import { MoneyInput, announce, focusRequest, type MoveTarget } from './ui';
 
 const NEW_GIFT = '__ny__';
@@ -12,6 +13,8 @@ const NEW_GIFT = '__ny__';
 export function ItemRow({
   item,
   index,
+  count,
+  onMove,
   gift,
   person,
   year,
@@ -22,6 +25,9 @@ export function ItemRow({
 }: {
   item: Item;
   index: number;
+  count: number;
+  /** Flytt opp (-1) eller ned (+1) i gaven. */
+  onMove: (delta: -1 | 1) => void;
   gift: Gift;
   person: Person;
   year: number;
@@ -105,7 +111,7 @@ export function ItemRow({
 
   if (mode === 'edit') {
     return (
-      <li className="item editing">
+      <SortableItem kind="item" id={item.id} parentId={gift.id} label={itemName} className="item editing">
         <form
           className="item-edit"
           noValidate
@@ -159,12 +165,13 @@ export function ItemRow({
             </button>
           </div>
         </form>
-      </li>
+      </SortableItem>
     );
   }
 
   return (
-    <li className={`item ${item.purchased ? 'purchased' : ''}`}>
+    <SortableItem kind="item" id={item.id} parentId={gift.id} label={itemName} className={`item ${item.purchased ? 'purchased' : ''}`}>
+      <DragHandle label={`Flytt ${itemName}`} />
       <label className="item-bought">
         <input type="checkbox" checked={item.purchased} onChange={(e) => update({ purchased: e.target.checked })} />
         <span className="item-text">
@@ -197,6 +204,24 @@ export function ItemRow({
               setDraft({ name: item.name, price: item.price, link: item.link, note: item.note });
               setPriceValid(true);
               setMode('edit');
+            },
+          },
+          count > 1 && {
+            label: 'Flytt opp',
+            icon: 'up',
+            disabled: index === 1,
+            onSelect: () => {
+              onMove(-1);
+              requestAnimationFrame(() => menuBtn.current?.focus());
+            },
+          },
+          count > 1 && {
+            label: 'Flytt ned',
+            icon: 'down',
+            disabled: index === count,
+            onSelect: () => {
+              onMove(1);
+              requestAnimationFrame(() => menuBtn.current?.focus());
             },
           },
           {
@@ -262,6 +287,6 @@ export function ItemRow({
           </button>
         </form>
       )}
-    </li>
+    </SortableItem>
   );
 }

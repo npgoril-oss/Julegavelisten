@@ -1,7 +1,8 @@
 import type { Gift } from './types';
 
-/** Hvor nær budsjettet (i kr) summen må være for at budsjettet regnes som nådd. */
-export const BUDGET_TOLERANCE = 100;
+/** Hvor nær budsjettet summen må være for å regnes som «på budsjett», som andel av budsjettet (10 %). */
+export const BUDGET_TOLERANCE = 0.1;
+export const BUDGET_TOLERANCE_LABEL = '±10 %';
 
 /** Sum av alle items som er kjøpt/bestilt. */
 export function purchasedSum(gift: Gift): number {
@@ -17,9 +18,9 @@ export type BudgetState = 'none' | 'under' | 'within' | 'over';
 
 /**
  * Hvor står kjøpt sum i forhold til budsjettet?
- * - under:  mer enn 100 kr under budsjett
- * - within: innenfor budsjett ± 100 kr
- * - over:   mer enn 100 kr over budsjett
+ * - under:  mer enn 10 % under budsjett
+ * - within: innenfor budsjett ± 10 %
+ * - over:   mer enn 10 % over budsjett
  */
 export function budgetState(gift: Gift): BudgetState {
   return compareToBudget(purchasedSum(gift), gift.budget);
@@ -28,8 +29,9 @@ export function budgetState(gift: Gift): BudgetState {
 export function compareToBudget(spent: number, budget: number | null): BudgetState {
   if (budget == null) return 'none';
   const diff = spent - budget;
-  if (diff < -BUDGET_TOLERANCE) return 'under';
-  if (diff > BUDGET_TOLERANCE) return 'over';
+  const tolerance = budget * BUDGET_TOLERANCE;
+  if (diff < -tolerance) return 'under';
+  if (diff > tolerance) return 'over';
   return 'within';
 }
 
