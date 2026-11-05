@@ -21,6 +21,12 @@
   --info-bg: #e8eef9;
   --track: #d6d2c8;
   --error: #a3201a;
+  /* Juletema */
+  --pine: #14452f;       /* toppfelt, hvit tekst 10:1 */
+  --pine-text: #ffffff;
+  --gold: #f2c14e;       /* nedtelling, mørk tekst 9:1 */
+  --gold-text: #3a2a00;
+  --ribbon: #b3261e;     /* dekorativ kant på personkort */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -43,6 +49,8 @@
     --info-bg: #1e2a3d;
     --track: #3c4340;
     --error: #ff9b93;
+    --pine: #0d2b1e;
+    --ribbon: #c4453d;
   }
 }
 
@@ -54,6 +62,7 @@ body {
   color: var(--text);
   font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
+.app, .topbar-inner { max-width: 1000px; margin: 0 auto; }
 h1, h2, h3, h4, p, dl, dd, ul { margin: 0; }
 ul { padding: 0; list-style: none; }
 
@@ -125,15 +134,39 @@ button.icon-btn.ghost:hover { border-color: var(--control); }
 
 /* ---------- Layout ---------- */
 .topbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px 12px;
-  max-width: 1000px; margin: 0 auto; padding: 12px 12px 0;
+  background-color: var(--pine);
+  /* Diskrete snøfnugg (dekorativ, statisk). */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='80' viewBox='0 0 120 80'%3E%3Cg fill='none' stroke='white' stroke-opacity='0.16' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M18 10v16M10 18h16M12.5 12.5l11 11M23.5 12.5l-11 11'/%3E%3Cpath d='M78 44v10M73 49h10M74.5 45.5l7 7M81.5 45.5l-7 7'/%3E%3Cpath d='M100 8v8M96 12h8M97 9l6 6M103 9l-6 6'/%3E%3Cpath d='M44 58v8M40 62h8M41 59l6 6M47 59l-6 6'/%3E%3C/g%3E%3Cg fill='white' fill-opacity='0.2'%3E%3Ccircle cx='55' cy='18' r='1.6'/%3E%3Ccircle cx='8' cy='60' r='1.3'/%3E%3Ccircle cx='110' cy='66' r='1.5'/%3E%3Ccircle cx='66' cy='72' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  color: var(--pine-text);
+  border-bottom: 4px solid var(--ribbon);
 }
-h1 { font-size: 1.25rem; }
+.topbar-inner {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px;
+  padding: 12px 12px 10px;
+}
+h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.01em; }
+.countdown {
+  grid-column: 1 / -1; justify-self: start;
+  background: var(--gold); color: var(--gold-text);
+  font-size: 0.8125rem; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+}
+.topbar :focus-visible { outline-color: var(--gold); }
+.topbar select {
+  background: rgb(255 255 255 / 0.12); color: var(--pine-text);
+  border: 1px solid rgb(255 255 255 / 0.7);
+}
+.topbar option { color: #1f2421; background: #ffffff; }
 .year select { width: auto; min-height: 40px; padding: 4px 8px; }
-.app { max-width: 1000px; margin: 0 auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.app { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { color: var(--muted); text-align: center; padding: 32px 0; }
+.empty-art { font-size: 2.25rem; letter-spacing: 0.2em; margin-bottom: 8px; }
 
 .overview { background: var(--card); border: 1px solid var(--divider); border-radius: 8px; padding: 10px 12px; }
+/* Polkagris-striper på årets fremdrift (dekorativt; fargen viser fortsatt status). */
+.overview .bar { height: 8px; }
+.overview .bar-fill {
+  background-image: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.28) 0 6px, transparent 6px 12px);
+}
 .overview-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; margin-bottom: 6px; }
 .overview-stats { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.875rem; margin-top: 6px; }
 
@@ -197,7 +230,10 @@ h1 { font-size: 1.25rem; }
 
 /* ---------- Person ---------- */
 .persons { display: flex; flex-direction: column; gap: 8px; }
-.person { background: var(--card); border: 1px solid var(--divider); border-radius: 10px; padding: 4px 6px 8px; }
+.person {
+  background: var(--card); border: 1px solid var(--divider); border-top: 3px solid var(--ribbon);
+  border-radius: 10px; padding: 4px 6px 8px;
+}
 .person.collapsed { padding-bottom: 4px; }
 .person.archived { background: var(--bg); }
 .person-head {

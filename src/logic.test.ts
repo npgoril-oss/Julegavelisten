@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { availableYears, budgetState, isGiftDone, plannedSum, purchasedSum, summarize } from './logic';
+import { availableYears, christmasCountdown, budgetState, isGiftDone, plannedSum, purchasedSum, summarize } from './logic';
 import { reducer, emptyData, byOrder, parseData } from './store';
 import type { Gift, Item } from './types';
 
@@ -175,5 +175,22 @@ describe('sortering', () => {
       gifts: [],
     });
     expect(ordered(d)).toEqual(['Anne', 'Øyvind', 'Åse']);
+  });
+});
+
+describe('nedtelling til julaften', () => {
+  const at = (iso: string) => christmasCountdown(new Date(`${iso}T12:00:00`));
+  it('teller hele dager', () => {
+    expect(at('2026-11-05')).toEqual({ days: 49, label: '49 dager til julaften' });
+    expect(at('2026-12-01').days).toBe(23);
+  });
+  it('dagen før og selve julen', () => {
+    expect(at('2026-12-23').label).toBe('I morgen er det julaften!');
+    expect(at('2026-12-24').label).toBe('God jul!');
+    expect(at('2026-12-26').label).toBe('God jul!');
+  });
+  it('etter romjul telles det mot neste år', () => {
+    expect(at('2026-12-27').days).toBe(362);
+    expect(at('2027-01-01').label).toBe('357 dager til julaften');
   });
 });

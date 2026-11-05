@@ -8,7 +8,7 @@ import { MoreMenu } from './Menu';
 import { DragRoot, SortableGroup, dragId, type DropResult } from './Sortable';
 import { PersonCard } from './PersonCard';
 import { ProgressBar, announce, announcer, budgetInfo, focusRequest, giftLabel, type MoveTarget } from './ui';
-import { availableYears, currentYear, formatKr, summarize } from './logic';
+import { availableYears, christmasCountdown, currentYear, formatKr, summarize } from './logic';
 
 const COLLAPSED_KEY = 'julegavelisten:collapsed';
 function loadCollapsed(): Set<string> {
@@ -108,6 +108,7 @@ export default function App() {
     announce('Personene er sortert alfabetisk.');
   };
 
+  const countdown = christmasCountdown();
   const yearBudget = budgetInfo(summary.purchasedWithBudget, summary.budget || null);
 
   return (
@@ -116,6 +117,7 @@ export default function App() {
         Hopp til mottakere
       </a>
       <header className="topbar">
+        <div className="topbar-inner">
         <h1>
           <span aria-hidden="true">🎄 </span>Julegavelisten
         </h1>
@@ -130,6 +132,11 @@ export default function App() {
             ))}
           </select>
         </label>
+        <p className="countdown">
+          <span aria-hidden="true">✨ </span>
+          {countdown.label}
+        </p>
+        </div>
       </header>
 
       <main className="app">
@@ -221,7 +228,12 @@ export default function App() {
           </h2>
           {!store.ready && <p className="empty">Laster …</p>}
           {store.ready && persons.length === 0 && (
-            <p className="empty">Ingen personer ennå. Trykk «Ny person» for å legge til den første mottakeren.</p>
+            <div className="empty">
+              <p className="empty-art" aria-hidden="true">
+                🎁🎄🎁
+              </p>
+              <p>Ingen personer ennå. Trykk «Ny person» for å legge til den første mottakeren.</p>
+            </div>
           )}
           {persons.length > 0 && (
             <DragRoot onDrop={onDrop}>

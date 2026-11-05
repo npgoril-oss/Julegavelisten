@@ -101,3 +101,18 @@ const nokCents = fmt(2);
 export function formatKr(amount: number): string {
   return (Number.isInteger(amount) ? nokWhole : nokCents).format(amount);
 }
+
+/**
+ * Nedtelling til julaften (24. desember), regnet i hele kalenderdager i lokal tid.
+ * 24.–26. desember gir «God jul!». Etter romjul telles det mot neste julaften.
+ */
+export function christmasCountdown(now: Date = new Date()): { days: number; label: string } {
+  const y = now.getFullYear();
+  const today = new Date(y, now.getMonth(), now.getDate());
+  if (now.getMonth() === 11 && now.getDate() >= 24 && now.getDate() <= 26) return { days: 0, label: 'God jul!' };
+  let eve = new Date(y, 11, 24);
+  if (today > eve) eve = new Date(y + 1, 11, 24);
+  const days = Math.round((eve.getTime() - today.getTime()) / 86_400_000);
+  if (days === 1) return { days, label: 'I morgen er det julaften!' };
+  return { days, label: `${days} dager til julaften` };
+}
