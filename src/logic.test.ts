@@ -25,10 +25,10 @@ const gift = (budget: number | null, items: Item[], extra: Partial<Gift> = {}): 
 });
 
 describe('summer', () => {
-  it('summerer bare kjøpte items i kjøpt sum', () => {
+  it('kjøpt og planlagt (ikke kjøpt) summeres hver for seg', () => {
     const g = gift(500, [item(200, true), item(150, false)]);
     expect(purchasedSum(g)).toBe(200);
-    expect(plannedSum(g)).toBe(350);
+    expect(plannedSum(g)).toBe(150);
   });
 });
 

@@ -252,7 +252,7 @@ function GiftApp({ store, lock }: { store: Store; lock: LockControls }) {
             <span>
               Pakket inn {summary.wrapped} av {summary.gifts}
             </span>
-            {summary.planned !== summary.purchased && <span>Planlagt {formatKr(summary.planned)}</span>}
+            {summary.planned > 0 && <span>Planlagt {formatKr(summary.planned)}</span>}
             {summary.purchased !== summary.purchasedWithBudget && (
               <span>+ {formatKr(summary.purchased - summary.purchasedWithBudget)} uten budsjett</span>
             )}

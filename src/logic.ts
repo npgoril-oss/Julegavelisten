@@ -9,9 +9,9 @@ export function purchasedSum(gift: Gift): number {
   return gift.items.reduce((sum, i) => (i.purchased ? sum + i.price : sum), 0);
 }
 
-/** Sum av alle items, uavhengig av om de er kjøpt. */
+/** Sum av items som er lagt inn, men ikke kjøpt ennå. */
 export function plannedSum(gift: Gift): number {
-  return gift.items.reduce((sum, i) => sum + i.price, 0);
+  return gift.items.reduce((sum, i) => (i.purchased ? sum : sum + i.price), 0);
 }
 
 export type BudgetState = 'none' | 'under' | 'within' | 'over';
