@@ -6,6 +6,8 @@ export interface Person {
   name: string;
   /** Arkiverte personer vises ikke, men historikken beholdes. */
   archived: boolean;
+  /** Plassering i listen (stigende). */
+  order: number;
 }
 
 /** Ett element i en gave (en gave kan bestå av flere items). */
@@ -30,6 +32,8 @@ export interface Gift {
   /** Budsjett i kroner. null = ikke satt. */
   budget: number | null;
   wrapped: boolean;
+  /** Plassering blant personens gaver (stigende). */
+  order: number;
   items: Item[];
 }
 

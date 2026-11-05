@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { availableYears, budgetState, isGiftDone, plannedSum, purchasedSum, summarize } from './logic';
-import { reducer, emptyData } from './store';
+import { reducer, emptyData, byOrder, parseData } from './store';
 import type { Gift, Item } from './types';
 
 const item = (price: number, purchased = false, received = false): Item => ({
@@ -19,6 +19,7 @@ const gift = (budget: number | null, items: Item[], extra: Partial<Gift> = {}): 
   title: '',
   budget,
   wrapped: false,
+  order: 0,
   items,
   ...extra,
 });
@@ -110,5 +111,41 @@ describe('flytte ting mellom gaver', () => {
     const d = setup();
     expect(reducer(d, { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'finnes-ikke' })).toBe(d);
     expect(reducer(d, { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'g1' })).toBe(d);
+  });
+});
+
+describe('sortering', () => {
+  const ordered = (d: ReturnType<typeof emptyData>) => [...d.persons].sort(byOrder).map((p) => p.name);
+  const setup = () => ['Cecilie', 'Anna', 'Bjørn', 'Dag'].reduce((d, name) => reducer(d, { type: 'person/add', name }), emptyData());
+
+  it('nye personer legges sist', () => {
+    expect(ordered(setup())).toEqual(['Cecilie', 'Anna', 'Bjørn', 'Dag']);
+  });
+  it('reorder setter ny rekkefølge', () => {
+    const d = setup();
+    const id = (n: string) => d.persons.find((p) => p.name === n)!.id;
+    const r = reducer(d, { type: 'person/reorder', ids: ['Dag', 'Anna', 'Bjørn', 'Cecilie'].map(id) });
+    expect(ordered(r)).toEqual(['Dag', 'Anna', 'Bjørn', 'Cecilie']);
+  });
+  it('reorder av en delmengde lar de andre stå på plass', () => {
+    const d = setup();
+    const id = (n: string) => d.persons.find((p) => p.name === n)!.id;
+    // Bjørn er "skjult" (f.eks. arkivert) og er ikke med i listen som sorteres
+    const r = reducer(d, { type: 'person/reorder', ids: ['Dag', 'Anna', 'Cecilie'].map(id) });
+    expect(ordered(r)).toEqual(['Dag', 'Anna', 'Bjørn', 'Cecilie']);
+  });
+  it('gaver sorteres per person og år', () => {
+    let d = reducer(emptyData(), { type: 'person/add', name: 'A' });
+    const pid = d.persons[0].id;
+    for (const id of ['g1', 'g2', 'g3']) d = reducer(d, { type: 'gift/add', personId: pid, year: 2026, id });
+    d = reducer(d, { type: 'gift/reorder', ids: ['g3', 'g1', 'g2'] });
+    expect([...d.gifts].sort(byOrder).map((g) => g.id)).toEqual(['g3', 'g1', 'g2']);
+  });
+  it('eldre data uten rekkefølge får alfabetisk personrekkefølge', () => {
+    const d = parseData({
+      persons: [{ id: '1', name: 'Øyvind' }, { id: '2', name: 'Anne' }, { id: '3', name: 'Åse' }],
+      gifts: [],
+    });
+    expect(ordered(d)).toEqual(['Anne', 'Øyvind', 'Åse']);
   });
 });

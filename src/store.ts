@@ -22,9 +22,12 @@ export type Action =
   | { type: 'person/rename'; id: Id; name: string }
   | { type: 'person/archive'; id: Id; archived: boolean }
   | { type: 'person/delete'; id: Id }
+  /** Ny rekkefølge for de oppgitte personene. Andre personer (f.eks. skjulte arkiverte) beholder sin plass. */
+  | { type: 'person/reorder'; ids: Id[] }
   | { type: 'gift/add'; personId: Id; year: number; id?: Id }
   | { type: 'gift/update'; id: Id; patch: Partial<Pick<Gift, 'title' | 'budget' | 'wrapped'>> }
   | { type: 'gift/delete'; id: Id }
+  | { type: 'gift/reorder'; ids: Id[] }
   | { type: 'item/add'; giftId: Id; id?: Id }
   | { type: 'item/update'; giftId: Id; id: Id; patch: Partial<Omit<Item, 'id'>> }
   | { type: 'item/delete'; giftId: Id; id: Id }
@@ -36,6 +39,25 @@ const mapGift = (data: AppData, id: Id, fn: (g: Gift) => Gift): AppData => ({
   gifts: data.gifts.map((g) => (g.id === id ? fn(g) : g)),
 });
 
+const nextOrder = (list: { order: number }[]) => list.reduce((max, x) => Math.max(max, x.order), -1) + 1;
+
+/**
+ * Gir elementene i `ids` ny rekkefølge ved å bytte om på de plassnumrene de allerede har.
+ * Elementer som ikke er med i `ids` blir stående der de er.
+ */
+function reorder<T extends { id: Id; order: number }>(list: T[], ids: Id[]): T[] {
+  const set = new Set(ids);
+  const slots = list
+    .filter((x) => set.has(x.id))
+    .map((x) => x.order)
+    .sort((a, b) => a - b);
+  if (slots.length !== ids.length) return list;
+  const newOrder = new Map(ids.map((id, i) => [id, slots[i]]));
+  return list.map((x) => (newOrder.has(x.id) ? { ...x, order: newOrder.get(x.id)! } : x));
+}
+
+export const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
+
 const mapPerson = (data: AppData, id: Id, fn: (p: Person) => Person): AppData => ({
   ...data,
   persons: data.persons.map((p) => (p.id === id ? fn(p) : p)),
@@ -46,7 +68,10 @@ export function reducer(data: AppData, action: Action): AppData {
     case 'person/add': {
       const name = action.name.trim();
       if (!name) return data;
-      return { ...data, persons: [...data.persons, { id: newId(), name, archived: false }] };
+      return {
+        ...data,
+        persons: [...data.persons, { id: newId(), name, archived: false, order: nextOrder(data.persons) }],
+      };
     }
     case 'person/rename':
       return mapPerson(data, action.id, (p) => ({ ...p, name: action.name }));
@@ -58,6 +83,10 @@ export function reducer(data: AppData, action: Action): AppData {
         persons: data.persons.filter((p) => p.id !== action.id),
         gifts: data.gifts.filter((g) => g.personId !== action.id),
       };
+    case 'person/reorder':
+      return { ...data, persons: reorder(data.persons, action.ids) };
+    case 'gift/reorder':
+      return { ...data, gifts: reorder(data.gifts, action.ids) };
     case 'gift/add':
       return {
         ...data,
@@ -70,6 +99,7 @@ export function reducer(data: AppData, action: Action): AppData {
             title: '',
             budget: null,
             wrapped: false,
+            order: nextOrder(data.gifts.filter((g) => g.personId === action.personId && g.year === action.year)),
             items: [],
           },
         ],
@@ -131,20 +161,29 @@ export function parseData(raw: unknown): AppData {
   if (!Array.isArray(d.persons) || !Array.isArray(d.gifts)) {
     throw new Error('Filen mangler personer eller gaver');
   }
+  // Data uten rekkefølge (eldre versjoner) beholder visningen de hadde: personer alfabetisk, gaver i opprettet rekkefølge.
+  const alphaRank = new Map(
+    [...d.persons]
+      .sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? ''), 'nb'))
+      .map((p, i) => [String(p.id), i]),
+  );
+  const num = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
   return {
     version: 1,
     persons: d.persons.map((p) => ({
       id: String(p.id),
       name: String(p.name ?? ''),
       archived: Boolean(p.archived),
+      order: num(p.order, alphaRank.get(String(p.id)) ?? 0),
     })),
-    gifts: d.gifts.map((g) => ({
+    gifts: d.gifts.map((g, index) => ({
       id: String(g.id),
       personId: String(g.personId),
       year: Number(g.year),
       title: String(g.title ?? ''),
       budget: g.budget == null ? null : Number(g.budget),
       wrapped: Boolean(g.wrapped),
+      order: num(g.order, index),
       items: (Array.isArray(g.items) ? g.items : []).map((i) => ({
         id: String(i.id),
         name: String(i.name ?? ''),
