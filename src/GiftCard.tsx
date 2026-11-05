@@ -146,7 +146,11 @@ export function GiftCard({
           )
         )}
         {planned !== bought && <span className="muted">planlagt {formatKr(planned)}</span>}
-        {done && <span className="badge done">Alt kjøpt</span>}
+        {done && (
+          <span className="badge done">
+            <span aria-hidden="true">🎁 </span>Alt kjøpt
+          </span>
+        )}
         {allReceived(gift) && <span className="badge received">Alt mottatt</span>}
       </p>
       {gift.budget != null && (

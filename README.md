@@ -24,6 +24,8 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - **Alt kjøpt**-status når alle items er kjøpt. Budsjettet påvirker ikke status, men vises som indikator:
   «X kr igjen», «På budsjett» (innenfor ±10 % av budsjettet) eller «X kr over budsjett». Totalt per person og per år.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
+- **Juletema**: toppfelt i granfarge med diskrete, statiske snøfnugg og nedtelling til julaften. Ingen animasjon,
+  og kontrasten er tilpasset WCAG også i mørk modus.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 
 ## Lagring og personvern
