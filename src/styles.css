@@ -138,6 +138,31 @@ h1 { font-size: 1.375rem; }
 .data-tools { display: flex; flex-wrap: wrap; gap: 8px; }
 .empty { color: var(--muted); text-align: center; padding: 32px 0; }
 
+/* ---------- Lagring ---------- */
+.notice {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
+  padding: 12px; border-radius: 8px; border: 1px solid; 
+}
+.notice.warn { background: var(--warn-bg); color: var(--text); border-color: var(--warn); }
+.notice.error { background: var(--card); color: var(--text); border: 2px solid var(--error); }
+.notice p { flex: 1 1 220px; }
+.storage { background: var(--card); border: 1px solid var(--divider); border-radius: 8px; }
+.storage summary {
+  cursor: pointer; padding: 10px 12px; min-height: 44px; display: flex; align-items: center; font-weight: 600;
+}
+.storage-body { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.storage-status { display: grid; gap: 6px; }
+.storage-status div { display: flex; flex-wrap: wrap; gap: 0 8px; }
+.storage-status dt { color: var(--muted); }
+.storage-status dt::after { content: ':'; }
+.storage-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.update-toast {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 20; margin: 0 auto; max-width: 520px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px;
+  background: var(--card); border: 2px solid var(--focus); border-radius: 10px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+.update-toast span { flex: 1 1 200px; }
+
 /* ---------- Person ---------- */
 .person {
   background: var(--card); border: 1px solid var(--divider); border-radius: 10px;

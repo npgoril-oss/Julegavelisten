@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type RefObject } from 'react';
-import type { AppData, Gift, Item, Person } from './types';
-import { newId, parseData, useAppData, type Action } from './store';
+import type { Gift, Item, Person } from './types';
+import { newId, useAppData, type Action } from './store';
+import { StoragePanel } from './StoragePanel';
+import { UpdatePrompt } from './UpdatePrompt';
 import { Icon, IconButton } from './icons';
 import {
   BUDGET_TOLERANCE,
@@ -70,7 +72,8 @@ function useReturnFocus(open: boolean) {
 }
 
 export default function App() {
-  const [data, dispatch] = useAppData();
+  const store = useAppData();
+  const { data, dispatch } = store;
   const [year, setYear] = useState(currentYear());
   const [showArchived, setShowArchived] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
@@ -159,6 +162,18 @@ export default function App() {
           )}
         </section>
 
+        <StoragePanel
+          data={data}
+          restore={store.restore}
+          meta={store.meta}
+          persist={store.persist}
+          idbAvailable={store.idbAvailable}
+          saveError={store.saveError}
+          markBackedUp={store.markBackedUp}
+          recheckPersistence={store.recheckPersistence}
+          announce={announce}
+        />
+
         <AddPerson onAdd={(name) => dispatch({ type: 'person/add', name })} />
 
         <div className="toolbar">
@@ -174,14 +189,14 @@ export default function App() {
               Vis alle
             </button>
           </div>
-          <DataTools data={data} dispatch={dispatch} />
         </div>
 
         <section id="mottakere" aria-labelledby="mottakere-tittel" tabIndex={-1}>
           <h2 id="mottakere-tittel" className="visually-hidden">
             Mottakere
           </h2>
-          {persons.length === 0 && <p className="empty">Ingen personer ennå. Legg til den første mottakeren over.</p>}
+          {!store.ready && <p className="empty">Laster …</p>}
+          {store.ready && persons.length === 0 && <p className="empty">Ingen personer ennå. Legg til den første mottakeren over.</p>}
           {persons.map((p) => (
             <PersonCard
               key={p.id}
@@ -196,6 +211,7 @@ export default function App() {
           ))}
         </section>
       </main>
+      <UpdatePrompt />
       <div className="visually-hidden" role="status" aria-live="polite">
         {message}
       </div>
@@ -947,48 +963,6 @@ export function BudgetBar({ spent, budget, name }: { spent: number; budget: numb
         <div className="bar-fill" style={{ width: `${pct}%` }} />
       </div>
       <span className="visually-hidden">«På budsjett» betyr innenfor ±{BUDGET_TOLERANCE} kr.</span>
-    </div>
-  );
-}
-
-function DataTools({ data, dispatch }: { data: AppData; dispatch: Dispatch<Action> }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="data-tools">
-      <button
-        className="ghost"
-        onClick={() => {
-          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = `julegavelisten-${new Date().toISOString().slice(0, 10)}.json`;
-          a.click();
-          URL.revokeObjectURL(a.href);
-        }}
-      >
-        Eksporter (backup)
-      </button>
-      <button className="ghost" onClick={() => fileRef.current?.click()}>
-        Importer
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json"
-        hidden
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          e.target.value = '';
-          if (!file) return;
-          try {
-            const parsed = parseData(JSON.parse(await file.text()));
-            if (confirm('Dette erstatter alle data i appen. Fortsette?'))
-              dispatch({ type: 'data/replace', data: parsed });
-          } catch (err) {
-            alert(`Kunne ikke importere: ${(err as Error).message}`);
-          }
-        }}
-      />
     </div>
   );
 }

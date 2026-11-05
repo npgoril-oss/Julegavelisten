@@ -1,7 +1,14 @@
-import { useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import {
+  emptyMeta,
+  loadAll,
+  requestPersistence,
+  saveData,
+  saveMeta,
+  type BackupMeta,
+  type PersistState,
+} from './persistence';
 import type { AppData, Gift, Id, Item, Person } from './types';
-
-export const STORAGE_KEY = 'julegavelisten:v1';
 
 export const emptyData = (): AppData => ({ version: 1, persons: [], gifts: [] });
 
@@ -151,23 +158,74 @@ export function parseData(raw: unknown): AppData {
   };
 }
 
-function load(): AppData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? parseData(JSON.parse(raw)) : emptyData();
-  } catch {
-    return emptyData();
-  }
-}
-
+/**
+ * Tilstand + lagring. Data lastes asynkront fra IndexedDB; ingenting lagres før lasting er ferdig,
+ * slik at en tom starttilstand aldri kan overskrive lagrede data.
+ */
 export function useAppData() {
-  const [data, dispatch] = useReducer(reducer, undefined, load);
+  const [data, dispatch] = useReducer(reducer, undefined, emptyData);
+  const [ready, setReady] = useState(false);
+  const [meta, setMeta] = useState<BackupMeta>(emptyMeta);
+  const [saveError, setSaveError] = useState(false);
+  const [idbAvailable, setIdbAvailable] = useState(true);
+  const [persist, setPersist] = useState<PersistState | 'pending'>('pending');
+  // Data-objekter som ikke skal lagres / ikke telles som endring (identitet sammenlignes).
+  const skipSaveRef = useRef<AppData | null>(null);
+  const skipCountRef = useRef<AppData | null>(null);
+
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      /* lagring utilgjengelig – data lever kun i minnet */
+    let cancelled = false;
+    loadAll().then((loaded) => {
+      if (cancelled) return;
+      // Data fra IndexedDB er allerede lagret. Data fra eldre lager skrives over til IndexedDB med en gang.
+      if (loaded.source !== 'legacy') skipSaveRef.current = loaded.data;
+      skipCountRef.current = loaded.data;
+      dispatch({ type: 'data/replace', data: loaded.data });
+      setMeta(loaded.meta);
+      setIdbAvailable(loaded.idbAvailable);
+      setReady(true);
+      requestPersistence().then(setPersist);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (skipSaveRef.current !== data) {
+      saveData(data).then(
+        () => setSaveError(false),
+        () => setSaveError(true),
+      );
     }
-  }, [data]);
-  return [data, dispatch] as const;
+    if (skipCountRef.current !== data) {
+      setMeta((m) => {
+        const next = { ...m, changesSinceBackup: m.changesSinceBackup + 1 };
+        saveMeta(next);
+        return next;
+      });
+    }
+    skipSaveRef.current = null;
+    skipCountRef.current = null;
+  }, [data, ready]);
+
+  const markBackedUp = useCallback(() => {
+    const next = { lastBackupAt: new Date().toISOString(), changesSinceBackup: 0 };
+    setMeta(next);
+    saveMeta(next);
+  }, []);
+
+  /** Gjenoppretter fra sikkerhetskopi. Dataene lagres, og tilsvarer da kopien fra `backedUpAt`. */
+  const restore = useCallback((restored: AppData, backedUpAt: string | null) => {
+    skipCountRef.current = restored;
+    dispatch({ type: 'data/replace', data: restored });
+    const next = { lastBackupAt: backedUpAt, changesSinceBackup: backedUpAt ? 0 : 1 };
+    setMeta(next);
+    saveMeta(next);
+  }, []);
+
+  const recheckPersistence = useCallback(() => requestPersistence().then(setPersist), []);
+
+  return { data, dispatch, ready, meta, saveError, idbAvailable, persist, markBackedUp, restore, recheckPersistence };
 }

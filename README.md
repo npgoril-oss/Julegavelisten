@@ -18,9 +18,23 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 
-## Lagring
-Data lagres lokalt i nettleseren (`localStorage`). Ingen server, ingen innlogging.
-Bruk eksport for backup.
+## Lagring og personvern
+Ingen server. Alle data lagres bare på enheten og sendes aldri noe sted, bortsett fra når du selv tar
+en sikkerhetskopi.
+
+- **IndexedDB** er hovedlager. `localStorage` er speilkopi som reserve. Data fra eldre versjoner flyttes automatisk over.
+- **Varig lagring** (`navigator.storage.persist()`) blir forespurt, så nettleseren ikke rydder bort data.
+  På Android/Chrome innvilges dette normalt når appen er installert.
+- **Installerbar app (PWA)** med offline-støtte. Installer fra Chrome-menyen eller med knappen i
+  «Lagring og sikkerhetskopi». Ny versjon tas i bruk først når du trykker «Oppdater».
+- **Sikkerhetskopi**: Åpner Androids delingsmeny, så filen kan lagres i Google Drive o.l. Der deling ikke
+  støttes, lastes filen ned. **Gjenopprett fra fil** erstatter data på enheten. En kopi av gjeldende data
+  lagres internt før gjenoppretting.
+- **Påminnelse** når du ikke har tatt sikkerhetskopi (etter 10 endringer), eller når det er gått mer enn
+  7 dager siden forrige kopi og det er gjort endringer siden.
+
+**Krav til publisering:** PWA krever HTTPS. Appen er statisk (`dist/`) og kan publiseres på GitHub Pages,
+Netlify eller Cloudflare Pages. Disse serverer bare filene og ser aldri dataene dine.
 
 ## Utvikling
 ```bash
