@@ -22,8 +22,12 @@ export type BudgetState = 'none' | 'under' | 'within' | 'over';
  * - over:   mer enn 100 kr over budsjett
  */
 export function budgetState(gift: Gift): BudgetState {
-  if (gift.budget == null) return 'none';
-  const diff = purchasedSum(gift) - gift.budget;
+  return compareToBudget(purchasedSum(gift), gift.budget);
+}
+
+export function compareToBudget(spent: number, budget: number | null): BudgetState {
+  if (budget == null) return 'none';
+  const diff = spent - budget;
   if (diff < -BUDGET_TOLERANCE) return 'under';
   if (diff > BUDGET_TOLERANCE) return 'over';
   return 'within';
@@ -38,14 +42,11 @@ export function allReceived(gift: Gift): boolean {
 }
 
 /**
- * En gave er ferdig når alle items er kjøpt og budsjettet er nådd (minst budsjett − 100 kr).
- * Overskridelse hindrer ikke "ferdig", men vises som varsel.
- * Uten budsjett er gaven ferdig når alle items er kjøpt.
+ * En gave er ferdig når alle items er kjøpt/bestilt.
+ * Budsjettet påvirker ikke status – det vises kun som indikator (se budgetState).
  */
 export function isGiftDone(gift: Gift): boolean {
-  if (!allPurchased(gift)) return false;
-  const state = budgetState(gift);
-  return state === 'none' || state === 'within' || state === 'over';
+  return allPurchased(gift);
 }
 
 export interface YearSummary {
@@ -53,6 +54,8 @@ export interface YearSummary {
   done: number;
   wrapped: number;
   budget: number;
+  /** Kjøpt sum kun for gaver som har budsjett – det som kan sammenlignes med budsjettet. */
+  purchasedWithBudget: number;
   purchased: number;
   planned: number;
 }
@@ -64,10 +67,11 @@ export function summarize(gifts: Gift[]): YearSummary {
       done: s.done + (isGiftDone(g) ? 1 : 0),
       wrapped: s.wrapped + (g.wrapped ? 1 : 0),
       budget: s.budget + (g.budget ?? 0),
+      purchasedWithBudget: s.purchasedWithBudget + (g.budget != null ? purchasedSum(g) : 0),
       purchased: s.purchased + purchasedSum(g),
       planned: s.planned + plannedSum(g),
     }),
-    { gifts: 0, done: 0, wrapped: 0, budget: 0, purchased: 0, planned: 0 },
+    { gifts: 0, done: 0, wrapped: 0, budget: 0, purchasedWithBudget: 0, purchased: 0, planned: 0 },
   );
 }
 

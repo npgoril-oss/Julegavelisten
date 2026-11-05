@@ -4,11 +4,11 @@ Oversikt over julegaver når man skal kjøpe til mange.
 
 ## Funksjoner
 - **Personer** (mottakere) er felles for alle år – de følger automatisk med til nytt år. Kan arkiveres.
-- **Gaver** per person per år, med valgfritt **budsjett** og avkrysning for **pakket inn**.
+- **Gaver** (en eller flere) per person per år, med valgfritt **budsjett** og avkrysning for **pakket inn**.
 - **Items** per gave: navn/beskrivelse, pris, notat, lenke, **kjøpt** og **mottatt**.
 - Viser sum kjøpt/bestilt, planlagt sum og status mot budsjett.
-- **Ferdig**: alle items kjøpt *og* kjøpt sum ≥ budsjett − 100 kr. Over budsjett + 100 kr vises som varsel.
-  Uten budsjett er gaven ferdig når alt er kjøpt.
+- **Alt kjøpt**-status når alle items er kjøpt. Budsjettet påvirker ikke status, men vises som indikator:
+  «X kr igjen», «På budsjett» (innenfor ±100 kr) eller «X kr over budsjett». Totalt per person og per år.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 

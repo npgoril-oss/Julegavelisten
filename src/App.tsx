@@ -3,10 +3,9 @@ import type { Gift, Item, Person } from './types';
 import { parseData, useAppData, type Action } from './store';
 import {
   BUDGET_TOLERANCE,
-  allPurchased,
   allReceived,
   availableYears,
-  budgetState,
+  compareToBudget,
   currentYear,
   formatKr,
   isGiftDone,
@@ -45,12 +44,21 @@ export default function App() {
       </header>
 
       <section className="summary">
-        <Stat label="Gaver" value={`${summary.done} / ${summary.gifts} ferdig`} />
+        <Stat label="Gaver" value={`${summary.done} / ${summary.gifts} alt kjøpt`} />
         <Stat label="Innpakket" value={`${summary.wrapped} / ${summary.gifts}`} />
         <Stat label="Budsjett totalt" value={formatKr(summary.budget)} />
         <Stat label="Kjøpt / bestilt" value={formatKr(summary.purchased)} />
         <Stat label="Planlagt totalt" value={formatKr(summary.planned)} />
       </section>
+
+      {summary.budget > 0 && (
+        <div className="year-budget">
+          <BudgetBar spent={summary.purchasedWithBudget} budget={summary.budget} />
+          {summary.purchased !== summary.purchasedWithBudget && (
+            <div className="muted small">+ {formatKr(summary.purchased - summary.purchasedWithBudget)} kjøpt på gaver uten budsjett</div>
+          )}
+        </div>
+      )}
 
       <AddPerson onAdd={(name) => dispatch({ type: 'person/add', name })} />
 
@@ -116,6 +124,8 @@ function PersonCard({
   dispatch: Dispatch<Action>;
 }) {
   const done = gifts.length > 0 && gifts.every(isGiftDone);
+  const total = summarize(gifts);
+  const hasBudget = gifts.some((g) => g.budget != null);
   return (
     <section className={`person ${person.archived ? 'archived' : ''}`}>
       <div className="person-head">
@@ -125,7 +135,13 @@ function PersonCard({
           aria-label="Navn"
           onChange={(e) => dispatch({ type: 'person/rename', id: person.id, name: e.target.value })}
         />
-        {done && <span className="badge done">Ferdig</span>}
+        {done && <span className="badge done">Alt kjøpt</span>}
+        {gifts.length > 1 && (
+          <span className="person-total">
+            {gifts.length} gaver · {formatKr(total.purchased)} kjøpt
+            {hasBudget && <> · budsjett {formatKr(total.budget)}</>}
+          </span>
+        )}
         {gifts.length === 0 && <span className="badge muted">Ingen gave i {year}</span>}
         <div className="spacer" />
         <button onClick={() => dispatch({ type: 'gift/add', personId: person.id, year })}>+ Ny gave</button>
@@ -155,7 +171,6 @@ function PersonCard({
 function GiftCard({ gift, dispatch }: { gift: Gift; dispatch: Dispatch<Action> }) {
   const bought = purchasedSum(gift);
   const planned = plannedSum(gift);
-  const state = budgetState(gift);
   const done = isGiftDone(gift);
 
   return (
@@ -193,23 +208,12 @@ function GiftCard({ gift, dispatch }: { gift: Gift; dispatch: Dispatch<Action> }
         </button>
       </div>
 
+      <BudgetBar spent={bought} budget={gift.budget} />
       <div className="gift-status">
-        <span>
-          Kjøpt/bestilt: <strong>{formatKr(bought)}</strong>
-          {gift.budget != null && <> av {formatKr(gift.budget)}</>}
-        </span>
         {planned !== bought && <span className="muted">Planlagt totalt: {formatKr(planned)}</span>}
-        {done && <span className="badge done">Ferdig</span>}
+        {done && <span className="badge done">Alt kjøpt</span>}
         {gift.wrapped && <span className="badge wrapped">Pakket inn</span>}
         {allReceived(gift) && <span className="badge received">Alt mottatt</span>}
-        {state === 'over' && (
-          <span className="badge warn">Over budsjett med {formatKr(bought - (gift.budget ?? 0))}</span>
-        )}
-        {state === 'under' && allPurchased(gift) && (
-          <span className="badge muted">
-            Alt kjøpt, men {formatKr((gift.budget ?? 0) - bought)} igjen av budsjett (±{BUDGET_TOLERANCE} kr)
-          </span>
-        )}
       </div>
 
       <table className="items">
@@ -356,6 +360,43 @@ function DataTools({ data, dispatch }: { data: unknown; dispatch: Dispatch<Actio
           }
         }}
       />
+    </div>
+  );
+}
+
+/** Viser hvordan kjøpt sum ligger an mot budsjettet (± BUDGET_TOLERANCE regnes som «på budsjett»). */
+export function BudgetBar({ spent, budget }: { spent: number; budget: number | null }) {
+  if (budget == null) {
+    return (
+      <div className="budget-line">
+        Kjøpt/bestilt: <strong>{formatKr(spent)}</strong> <span className="muted">(ingen budsjett satt)</span>
+      </div>
+    );
+  }
+  const state = compareToBudget(spent, budget);
+  const diff = budget - spent;
+  const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : spent > 0 ? 100 : 0;
+  const label =
+    state === 'over'
+      ? `${formatKr(-diff)} over budsjett`
+      : state === 'within'
+        ? diff >= 0
+          ? `På budsjett (${formatKr(diff)} igjen)`
+          : `På budsjett (${formatKr(-diff)} over)`
+        : `${formatKr(diff)} igjen`;
+  return (
+    <div className={`budget-line state-${state}`}>
+      <div className="budget-text">
+        <span>
+          Kjøpt/bestilt: <strong>{formatKr(spent)}</strong> av {formatKr(budget)}
+        </span>
+        <span className="budget-label" title={`«På budsjett» = innenfor ±${BUDGET_TOLERANCE} kr`}>
+          {label}
+        </span>
+      </div>
+      <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+        <div className="bar-fill" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

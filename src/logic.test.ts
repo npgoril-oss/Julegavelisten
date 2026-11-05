@@ -31,29 +31,35 @@ describe('summer', () => {
   });
 });
 
-describe('ferdig-regel (budsjett ± 100 kr og alt kjøpt)', () => {
-  it('er ferdig når alt er kjøpt og sum er innenfor -100 kr', () => {
-    expect(isGiftDone(gift(500, [item(400, true)]))).toBe(true);
-  });
-  it('er ikke ferdig når sum er mer enn 100 kr under budsjett', () => {
-    expect(isGiftDone(gift(500, [item(399, true)]))).toBe(false);
+describe('ferdig-status (alt kjøpt, uavhengig av budsjett)', () => {
+  it('er ferdig når alt er kjøpt, selv godt under budsjett', () => {
+    expect(isGiftDone(gift(500, [item(100, true)]))).toBe(true);
   });
   it('er ikke ferdig når ikke alt er kjøpt', () => {
     expect(isGiftDone(gift(500, [item(500, true), item(10, false)]))).toBe(false);
   });
-  it('er ferdig men markert over budsjett ved overskridelse', () => {
-    const g = gift(500, [item(700, true)]);
-    expect(isGiftDone(g)).toBe(true);
-    expect(budgetState(g)).toBe('over');
-  });
-  it('grensen +100 regnes som innenfor', () => {
-    expect(budgetState(gift(500, [item(600, true)]))).toBe('within');
-  });
-  it('uten budsjett er gaven ferdig når alt er kjøpt', () => {
-    expect(isGiftDone(gift(null, [item(100, true)]))).toBe(true);
-  });
   it('tom gave er aldri ferdig', () => {
     expect(isGiftDone(gift(0, []))).toBe(false);
+  });
+});
+
+describe('budsjettindikator (± 100 kr)', () => {
+  it('under, innenfor og over', () => {
+    expect(budgetState(gift(500, [item(399, true)]))).toBe('under');
+    expect(budgetState(gift(500, [item(400, true)]))).toBe('within');
+    expect(budgetState(gift(500, [item(600, true)]))).toBe('within');
+    expect(budgetState(gift(500, [item(601, true)]))).toBe('over');
+    expect(budgetState(gift(null, [item(601, true)]))).toBe('none');
+  });
+  it('teller bare kjøpte items', () => {
+    expect(budgetState(gift(500, [item(450, true), item(900, false)]))).toBe('within');
+  });
+});
+
+describe('årsoppsummering', () => {
+  it('skiller kjøpt sum for gaver med og uten budsjett', () => {
+    const s = summarize([gift(500, [item(300, true)]), gift(null, [item(200, true)])]);
+    expect(s).toMatchObject({ budget: 500, purchasedWithBudget: 300, purchased: 500 });
   });
 });
 
