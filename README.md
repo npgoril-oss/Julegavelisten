@@ -26,6 +26,10 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
 - **Juletema**: toppfelt i granfarge med diskrete, statiske snøfnugg og nedtelling til julaften. Ingen animasjon,
   og kontrasten er tilpasset WCAG også i mørk modus.
+- **PIN-lås** (valgfri, ⋯-menyen): 4–6 sifre, så andre som bruker telefonen (f.eks. barna) ikke ser gavene.
+  Låser seg etter 15 minutter uten bruk, eller med «Lås nå» i toppfeltet. Koden lagres bare som saltet PBKDF2-hash.
+  Etter 5 feil må man vente stadig lenger. Glemt koden: lås opp med sikkerhetskopifilen, som gjenoppretter data og slår av låsen.
+  Dataene på telefonen er ikke kryptert, så låsen hindrer innsyn i appen, men beskytter ikke mot teknisk tilgang til telefonen.
 - **Lyst eller mørkt tema**: velges i ⋯-menyen (Lyst tema / Mørkt tema / Følg telefonen). Valget huskes på enheten.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 
