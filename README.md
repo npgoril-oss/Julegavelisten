@@ -7,8 +7,10 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - **Gaver** (en eller flere) per person per år, med valgfritt **budsjett** og avkrysning for **pakket inn**.
   Navn og budsjett vises som tekst og endres via «Rediger».
 - Personer kan **foldes sammen** (huskes på enheten). «Fold alle» / «Åpne alle».
-- **Sortering**: Dra personer og gaver i håndtaket (⠿) med mus, finger eller tastatur (mellomrom + piltaster).
-  Alternativ uten dra: «Flytt opp/ned» i ⋯-menyen (WCAG 2.5.7). «Sorter A–Å» for personer.
+- **Sortering**: Dra personer, gaver og ting i håndtaket (⠿) med mus, finger eller tastatur (mellomrom + piltaster).
+  Ting kan dras innen en gave og til en annen åpen gave (slipp på en ting, eller på «Legg til ting» for å legge
+  den sist). Alternativ uten dra: «Flytt opp/ned» og «Flytt til annen gave» i ⋯-menyen (WCAG 2.5.7).
+  «Sorter A–Å» for personer.
 - **Flytt** en ting til en annen gave i samme år – også til en annen person eller til en ny gave.
 - **Kompakt visning**: én linje per ting (☐ kjøpt, navn/notat, lenke, pris, ☐ mottatt, ⋯). Mindre brukte
   handlinger (rediger, flytt, arkiver, slett) ligger i ⋯-menyer på person, gave og ting.
@@ -16,7 +18,7 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - **Items** per gave: navn/beskrivelse, pris, notat, lenke, **kjøpt** og **mottatt**.
 - Viser sum kjøpt/bestilt, planlagt sum og status mot budsjett.
 - **Alt kjøpt**-status når alle items er kjøpt. Budsjettet påvirker ikke status, men vises som indikator:
-  «X kr igjen», «På budsjett» (innenfor ±100 kr) eller «X kr over budsjett». Totalt per person og per år.
+  «X kr igjen», «På budsjett» (innenfor ±10 % av budsjettet) eller «X kr over budsjett». Totalt per person og per år.
 - Inneværende år er valgt ved oppstart. Årsoversikt øverst.
 - Eksport/import av data som JSON (backup / flytte mellom enheter).
 

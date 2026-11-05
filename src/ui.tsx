@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { Gift } from './types';
-import { BUDGET_TOLERANCE, compareToBudget, formatKr, type BudgetState } from './logic';
+import { BUDGET_TOLERANCE_LABEL, compareToBudget, formatKr, type BudgetState } from './logic';
 
 /**
  * Felt som skal få fokus når det monteres (ny ting, ny gave, flyttet ting).
@@ -74,7 +74,7 @@ export function ProgressBar({ spent, budget, name }: { spent: number; budget: nu
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(pct)}
-      aria-valuetext={`${formatKr(spent)} av ${formatKr(budget)}. ${label}. «På budsjett» betyr innenfor ±${BUDGET_TOLERANCE} kr.`}
+      aria-valuetext={`${formatKr(spent)} av ${formatKr(budget)}. ${label}. «På budsjett» betyr innenfor ${BUDGET_TOLERANCE_LABEL}.`}
     >
       <div className="bar-fill" style={{ width: `${pct}%` }} />
     </div>

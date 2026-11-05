@@ -5,7 +5,7 @@ import { newId, type Action } from './store';
 import { formatKr, isGiftDone, summarize } from './logic';
 import { Icon } from './icons';
 import { MoreMenu } from './Menu';
-import { DragHandle, SortableItem, SortableList } from './Sortable';
+import { DragHandle, SortableGroup, SortableItem, dragId } from './Sortable';
 import { GiftCard } from './GiftCard';
 import { announce, focusRequest, giftLabel, type MoveTarget } from './ui';
 
@@ -70,12 +70,11 @@ export function PersonCard({
   };
 
   const giftIds = gifts.map((g) => g.id);
-  const reorderGifts = (ids: string[]) => dispatch({ type: 'gift/reorder', ids });
   const moveGift = (giftId: string, delta: -1 | 1) => {
     const from = giftIds.indexOf(giftId);
     const to = from + delta;
     if (to < 0 || to >= giftIds.length) return;
-    reorderGifts(arrayMove(giftIds, from, to));
+    dispatch({ type: 'gift/reorder', ids: arrayMove(giftIds, from, to) });
     const g = gifts[from];
     announce(`${giftLabel(g, from + 1)} flyttet til plass ${to + 1} av ${giftIds.length}.`);
   };
@@ -87,7 +86,7 @@ export function PersonCard({
         (hasBudget ? ` av ${formatKr(total.budget)}` : ' kjøpt');
 
   return (
-    <SortableItem id={person.id} className={`person ${person.archived ? 'archived' : ''} ${collapsed ? 'collapsed' : ''}`}>
+    <SortableItem kind="person" id={person.id} label={person.name} className={`person ${person.archived ? 'archived' : ''} ${collapsed ? 'collapsed' : ''}`}>
       <div className="person-head">
         {count > 1 && <DragHandle label={`Endre rekkefølge: ${person.name}`} />}
         <h3 className="person-name">
@@ -173,14 +172,7 @@ export function PersonCard({
           </form>
         )}
         {gifts.length > 0 && (
-          <SortableList
-            ids={giftIds}
-            labelOf={(gid) => {
-              const i = giftIds.indexOf(String(gid));
-              return i >= 0 ? giftLabel(gifts[i], i + 1) : 'gave';
-            }}
-            onReorder={reorderGifts}
-          >
+          <SortableGroup ids={giftIds.map((g) => dragId('gift', g))}>
             <ul className="gifts" aria-label={`Gaver til ${person.name}`}>
               {gifts.map((g, idx) => (
                 <GiftCard
@@ -197,7 +189,7 @@ export function PersonCard({
                 />
               ))}
             </ul>
-          </SortableList>
+          </SortableGroup>
         )}
         <button className="add-gift ghost with-icon" onClick={addGift}>
           <Icon name="plus" />

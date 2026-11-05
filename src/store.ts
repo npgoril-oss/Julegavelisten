@@ -31,7 +31,9 @@ export type Action =
   | { type: 'item/add'; giftId: Id; id?: Id }
   | { type: 'item/update'; giftId: Id; id: Id; patch: Partial<Omit<Item, 'id'>> }
   | { type: 'item/delete'; giftId: Id; id: Id }
-  | { type: 'item/move'; fromGiftId: Id; id: Id; toGiftId: Id }
+  | { type: 'item/reorder'; giftId: Id; ids: Id[] }
+  /** Flytt til en annen gave. `index` = plass i målgaven (standard: sist). */
+  | { type: 'item/move'; fromGiftId: Id; id: Id; toGiftId: Id; index?: number }
   | { type: 'data/replace'; data: AppData };
 
 const mapGift = (data: AppData, id: Id, fn: (g: Gift) => Gift): AppData => ({
@@ -54,6 +56,11 @@ function reorder<T extends { id: Id; order: number }>(list: T[], ids: Id[]): T[]
   if (slots.length !== ids.length) return list;
   const newOrder = new Map(ids.map((id, i) => [id, slots[i]]));
   return list.map((x) => (newOrder.has(x.id) ? { ...x, order: newOrder.get(x.id)! } : x));
+}
+
+function insertAt<T>(list: T[], item: T, index?: number): T[] {
+  const i = index == null ? list.length : Math.max(0, Math.min(index, list.length));
+  return [...list.slice(0, i), item, ...list.slice(i)];
 }
 
 export const byOrder = (a: { order: number }, b: { order: number }) => a.order - b.order;
@@ -133,6 +140,12 @@ export function reducer(data: AppData, action: Action): AppData {
         ...g,
         items: g.items.filter((i) => i.id !== action.id),
       }));
+    case 'item/reorder':
+      return mapGift(data, action.giftId, (g) => {
+        const byId = new Map(g.items.map((i) => [i.id, i]));
+        if (action.ids.length !== g.items.length || !action.ids.every((id) => byId.has(id))) return g;
+        return { ...g, items: action.ids.map((id) => byId.get(id)!) };
+      });
     case 'item/move': {
       if (action.fromGiftId === action.toGiftId) return data;
       const from = data.gifts.find((g) => g.id === action.fromGiftId);
@@ -144,7 +157,7 @@ export function reducer(data: AppData, action: Action): AppData {
           g.id === action.fromGiftId
             ? { ...g, items: g.items.filter((i) => i.id !== action.id) }
             : g.id === action.toGiftId
-              ? { ...g, items: [...g.items, item] }
+              ? { ...g, items: insertAt(g.items, item, action.index) }
               : g,
         ),
       };

@@ -269,18 +269,22 @@ h1 { font-size: 1.25rem; }
 /* ---------- Ting (én linje) ---------- */
 .item, .item-legend {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px auto 40px 40px;
+  grid-template-columns: 28px minmax(0, 1fr) 28px auto 40px 40px;
   align-items: center; column-gap: 4px;
 }
 .item-legend { font-size: 0.75rem; color: var(--muted); padding: 2px 4px 0; }
 .item-legend .num { text-align: right; }
-.item-legend span:nth-child(4) { text-align: center; }
+.item-legend span:nth-child(5) { text-align: center; }
+.item > .drag-handle { height: 40px; }
+.drop-before { box-shadow: inset 0 3px 0 0 var(--focus); }
+.gift-drop-target { border-radius: 8px; }
+.gift-drop-target.active .add-item { border-style: dashed; }
+.gift-drop-target.over .add-item { border: 2px solid var(--focus); background: var(--info-bg); }
 .items { border-top: 1px solid var(--divider); margin: 0 4px; }
 .item { border-bottom: 1px solid var(--divider); min-height: 44px; }
 .item-bought { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 2px 0; min-width: 0; }
 .item-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
 .item-name { overflow-wrap: anywhere; }
-.item.purchased .item-name { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--muted); }
 .item-note { color: var(--muted); font-size: 0.8125rem; overflow-wrap: anywhere; }
 .item-link { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 32px; color: var(--info); }
 .item-link .icon { width: 18px; height: 18px; }
@@ -301,7 +305,7 @@ h1 { font-size: 1.25rem; }
   .gift-edit { grid-template-columns: 1fr 140px auto; }
   .item-edit { grid-template-columns: 2fr 140px; }
   .item-edit .f-note, .item-edit .form-actions { grid-column: 1 / -1; }
-  .item, .item-legend { grid-template-columns: minmax(0, 1fr) 32px 100px 56px 40px; }
+  .item, .item-legend { grid-template-columns: 28px minmax(0, 1fr) 32px 100px 56px 40px; }
 }
 @media (min-width: 760px) {
   .person-head { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: 'handle name total menu'; }

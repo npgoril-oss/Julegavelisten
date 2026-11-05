@@ -5,9 +5,9 @@ import { StoragePanel } from './StoragePanel';
 import { UpdatePrompt } from './UpdatePrompt';
 import { Icon } from './icons';
 import { MoreMenu } from './Menu';
-import { SortableList } from './Sortable';
+import { DragRoot, SortableGroup, dragId, type DropResult } from './Sortable';
 import { PersonCard } from './PersonCard';
-import { ProgressBar, announce, announcer, budgetInfo, giftLabel, type MoveTarget } from './ui';
+import { ProgressBar, announce, announcer, budgetInfo, focusRequest, giftLabel, type MoveTarget } from './ui';
 import { availableYears, currentYear, formatKr, summarize } from './logic';
 
 const COLLAPSED_KEY = 'julegavelisten:collapsed';
@@ -73,6 +73,35 @@ export default function App() {
     reorderPersons(arrayMove(personIds, from, to));
     announce(`${persons[from].name} flyttet til plass ${to + 1} av ${personIds.length}.`);
   };
+  /** Resultat av dra-og-slipp (mus, berøring eller tastatur). */
+  const onDrop = ({ active: a, over: o }: DropResult) => {
+    if (a.kind === 'person' && o.kind === 'person') {
+      reorderPersons(arrayMove(personIds, personIds.indexOf(a.id), personIds.indexOf(o.id)));
+      return;
+    }
+    if (a.kind === 'gift' && o.kind === 'gift' && a.parentId === o.parentId) {
+      const ids = giftsFor(a.parentId).map((g) => g.id);
+      dispatch({ type: 'gift/reorder', ids: arrayMove(ids, ids.indexOf(a.id), ids.indexOf(o.id)) });
+      return;
+    }
+    if (a.kind !== 'item') return;
+    const from = data.gifts.find((g) => g.id === a.parentId);
+    if (!from) return;
+    const ids = from.items.map((i) => i.id);
+    const toGiftId = o.kind === 'item' ? o.parentId : o.kind === 'giftDrop' ? o.id : null;
+    if (!toGiftId) return;
+    if (toGiftId === from.id) {
+      const to = o.kind === 'item' ? ids.indexOf(o.id) : ids.length - 1;
+      dispatch({ type: 'item/reorder', giftId: from.id, ids: arrayMove(ids, ids.indexOf(a.id), to) });
+      return;
+    }
+    const target = data.gifts.find((g) => g.id === toGiftId);
+    const index = o.kind === 'item' ? target?.items.findIndex((i) => i.id === o.id) : undefined;
+    // Elementet monteres på nytt i målgaven; gi fokus til menyknappen der (viktig ved tastaturbruk).
+    focusRequest.id = `item-${a.id}`;
+    dispatch({ type: 'item/move', fromGiftId: from.id, id: a.id, toGiftId, index });
+  };
+
   const sortAlphabetically = () => {
     const ids = [...data.persons].sort((a, b) => a.name.localeCompare(b.name, 'nb')).map((p) => p.id);
     dispatch({ type: 'person/reorder', ids });
@@ -195,11 +224,8 @@ export default function App() {
             <p className="empty">Ingen personer ennå. Trykk «Ny person» for å legge til den første mottakeren.</p>
           )}
           {persons.length > 0 && (
-            <SortableList
-              ids={personIds}
-              labelOf={(id) => persons.find((p) => p.id === id)?.name ?? 'person'}
-              onReorder={reorderPersons}
-            >
+            <DragRoot onDrop={onDrop}>
+              <SortableGroup ids={personIds.map((id) => dragId('person', id))}>
               <ul className="persons">
                 {persons.map((p, i) => (
                   <PersonCard
@@ -217,7 +243,8 @@ export default function App() {
                   />
                 ))}
               </ul>
-            </SortableList>
+              </SortableGroup>
+            </DragRoot>
           )}
         </section>
       </main>
