@@ -69,6 +69,16 @@ export function PersonCard({
     dispatch({ type: 'gift/add', personId: person.id, year, id: giftId });
   };
 
+  /** Person uten gave: opprett en gave i bakgrunnen og gå rett til første ting. */
+  const addFirstItem = () => {
+    const giftId = newId();
+    const itemId = newId();
+    focusRequest.id = `item-${itemId}`;
+    setCollapsed(person.id, false);
+    dispatch({ type: 'gift/add', personId: person.id, year, id: giftId });
+    dispatch({ type: 'item/add', giftId, id: itemId });
+  };
+
   const giftIds = gifts.map((g) => g.id);
   const moveGift = (giftId: string, delta: -1 | 1) => {
     const from = giftIds.indexOf(giftId);
@@ -115,6 +125,7 @@ export function PersonCard({
           label={`Flere valg for ${person.name}`}
           buttonRef={menuBtn}
           entries={[
+            gifts.length === 0 && { label: 'Legg til ting', icon: 'plus', onSelect: addFirstItem },
             { label: 'Ny gave', icon: 'plus', onSelect: addGift },
             {
               label: 'Endre navn',
@@ -191,10 +202,18 @@ export function PersonCard({
             </ul>
           </SortableGroup>
         )}
-        <button className="add-gift ghost with-icon" onClick={addGift}>
-          <Icon name="plus" />
-          Ny gave<span className="visually-hidden"> til {person.name}</span>
-        </button>
+        <div className="person-add">
+          {gifts.length === 0 && (
+            <button className="add-gift with-icon" onClick={addFirstItem}>
+              <Icon name="plus" />
+              Legg til ting<span className="visually-hidden"> til {person.name}</span>
+            </button>
+          )}
+          <button className="add-gift ghost with-icon" onClick={addGift}>
+            <Icon name="plus" />
+            Ny gave<span className="visually-hidden"> til {person.name}</span>
+          </button>
+        </div>
       </div>
     </SortableItem>
   );

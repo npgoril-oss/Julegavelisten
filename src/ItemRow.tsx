@@ -22,6 +22,7 @@ export function ItemRow({
   moveTargets,
   onMovedTo,
   onRemoved,
+  onAddNext,
 }: {
   item: Item;
   index: number;
@@ -35,12 +36,16 @@ export function ItemRow({
   moveTargets: MoveTarget[];
   onMovedTo: (personId: string) => void;
   onRemoved: () => void;
+  /** Opprett neste ting i samme gave (rask registrering). */
+  onAddNext: () => void;
 }) {
   const id = useId();
   const focusKey = `item-${item.id}`;
   // Ny (tom) ting åpnes i redigering. En flyttet ting har samme fokusnøkkel, men er ikke tom.
   const [isNew] = useState(() => focusRequest.id === focusKey && !item.name && !item.price);
   const [mode, setMode] = useState<'view' | 'edit' | 'move'>(isNew ? 'edit' : 'view');
+  // Ny ting som ikke er lagret ennå: Enter lagrer og åpner neste.
+  const [fresh, setFresh] = useState(isNew);
   const [draft, setDraft] = useState({ name: item.name, price: item.price, link: item.link, note: item.note });
   const [priceValid, setPriceValid] = useState(true);
   const [target, setTarget] = useState('');
@@ -82,10 +87,27 @@ export function ItemRow({
     onRemoved();
   };
 
+  const isBlank = () => !draft.name.trim() && !draft.price && !draft.link.trim() && !draft.note.trim();
+
   const cancelEdit = () => {
     // Avbryt på en helt ny, tom ting fjerner den igjen.
-    if (isNew && !item.name && !item.price && !item.link && !item.note) remove();
+    if (fresh && !item.name && !item.price && !item.link && !item.note) remove();
     else backToView();
+  };
+
+  const save = (next: boolean) => {
+    if (!priceValid) return;
+    if (fresh && isBlank()) {
+      // Tom ny ting: «Ferdig»/Enter avslutter rask registrering uten å lagre noe.
+      remove();
+      return;
+    }
+    update({ ...draft, name: draft.name.trim(), link: draft.link.trim() });
+    setFresh(false);
+    if (next) {
+      setMode('view');
+      onAddNext();
+    } else backToView();
   };
 
   const doMove = () => {
@@ -118,11 +140,18 @@ export function ItemRow({
           aria-label={`Rediger ${itemName}`}
           onSubmit={(e) => {
             e.preventDefault();
-            if (!priceValid) return;
-            update({ ...draft, name: draft.name.trim(), link: draft.link.trim() });
-            backToView();
+            save(fresh);
           }}
           onKeyDown={(e) => e.key === 'Escape' && cancelEdit()}
+          onBlur={(e) => {
+            // En ny, tom ting som forlates (trykk et annet sted) fjernes, uten å flytte fokus dit brukeren gikk.
+            if (!fresh) return;
+            const form = e.currentTarget;
+            setTimeout(() => {
+              if (!document.hasFocus() || form.contains(document.activeElement)) return;
+              if (isBlank() && !item.name && !item.price) dispatch({ type: 'item/delete', giftId: gift.id, id: item.id });
+            });
+          }}
         >
           <div className="field f-name">
             <label htmlFor={`${id}-name`}>Navn / beskrivelse</label>
@@ -130,14 +159,24 @@ export function ItemRow({
               id={`${id}-name`}
               ref={nameInputRef}
               value={draft.name}
+              enterKeyHint="next"
               onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              onKeyDown={(e) => {
+                // Enter i navnefeltet går videre til pris (rask registrering på mobil).
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  document.getElementById(`${id}-price`)?.focus();
+                }
+              }}
             />
           </div>
           <div className="field f-price">
             <label htmlFor={`${id}-price`}>Pris (kr)</label>
             <MoneyInput
               id={`${id}-price`}
-              value={draft.price}
+              value={draft.price || null}
+              allowEmpty
+              placeholder="0"
               onChange={(v) => setDraft((d) => ({ ...d, price: v ?? 0 }))}
               onValidChange={setPriceValid}
             />
@@ -159,11 +198,21 @@ export function ItemRow({
             <input id={`${id}-note`} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
           </div>
           <div className="form-actions">
-            <button type="submit">Lagre</button>
+            {fresh ? (
+              <>
+                <button type="submit">Lagre og ny</button>
+                <button type="button" className="ghost" onClick={() => save(false)}>
+                  Ferdig
+                </button>
+              </>
+            ) : (
+              <button type="submit">Lagre</button>
+            )}
             <button type="button" className="ghost" onClick={cancelEdit}>
               Avbryt
             </button>
           </div>
+          {fresh && <p className="muted small form-hint">Enter i navn går til pris. Enter i pris lagrer og åpner neste ting.</p>}
         </form>
       </SortableItem>
     );
