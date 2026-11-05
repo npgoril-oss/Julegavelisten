@@ -87,12 +87,14 @@ export function MoneyInput({
   value,
   onChange,
   allowEmpty = false,
+  placeholder,
   onValidChange,
 }: {
   id: string;
   value: number | null;
   onChange: (v: number | null) => void;
   allowEmpty?: boolean;
+  placeholder?: string;
   onValidChange?: (valid: boolean) => void;
 }) {
   const toText = (v: number | null) => (v == null ? '' : String(v).replace('.', ','));
@@ -109,9 +111,11 @@ export function MoneyInput({
       <input
         id={id}
         inputMode="decimal"
+        enterKeyHint="done"
         autoComplete="off"
         className="money"
         value={shown}
+        placeholder={placeholder}
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? `${id}-err` : undefined}
         onFocus={() => {

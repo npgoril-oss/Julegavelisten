@@ -229,7 +229,13 @@ h1 { font-size: 1.25rem; }
 .person-body { padding: 0 2px 0 4px; }
 .rename { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 6px 0; }
 .rename .field { flex: 1 1 200px; }
-.add-gift { margin-top: 6px; font-size: 0.9375rem; }
+.person-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.add-gift { font-size: 0.9375rem; }
+.link-btn {
+  background: transparent; color: var(--info); border: 0; padding: 0 4px; min-height: 32px; min-width: 0;
+  font-size: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px;
+}
+.form-hint { grid-column: 1 / -1; margin: 0; }
 
 /* ---------- Gave ---------- */
 .gifts { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }

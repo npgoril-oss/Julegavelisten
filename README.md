@@ -5,6 +5,10 @@ Oversikt over julegaver når man skal kjøpe til mange.
 ## Funksjoner
 - **Personer** (mottakere) er felles for alle år – de følger automatisk med til nytt år. Kan arkiveres.
 - **Gaver** (en eller flere) per person per år, med valgfritt **budsjett** og avkrysning for **pakket inn**.
+  Budsjettet ligger på gaven, slik at du kan ha flere gaver til samme person, for eksempel når du kjøper inn på vegne av flere.
+- **Få trykk**: Har personen ingen gave, legger «Legg til ting» tingen i en ny gave automatisk. Enter i navn går
+  til pris, og Enter i pris lagrer og åpner neste ting. «+ Budsjett» setter budsjett med ett trykk. En ny gave
+  går rett videre til første ting.
   Navn og budsjett vises som tekst og endres via «Rediger».
 - Personer kan **foldes sammen** (huskes på enheten). «Fold alle» / «Åpne alle».
 - **Sortering**: Dra personer, gaver og ting i håndtaket (⠿) med mus, finger eller tastatur (mellomrom + piltaster).

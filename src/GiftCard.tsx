@@ -35,6 +35,9 @@ export function GiftCard({
   const focusKey = `gift-${gift.id}`;
   // En nyopprettet gave åpnes direkte i redigering.
   const [editing, setEditing] = useState(() => focusRequest.id === focusKey);
+  // Ny gave: når den lagres første gang uten ting, åpnes første ting med en gang.
+  const firstSave = useRef(editing);
+  const focusField = useRef<'title' | 'budget'>('title');
   const [draftTitle, setDraftTitle] = useState(gift.title);
   const [draftBudget, setDraftBudget] = useState<number | null>(gift.budget);
   const [budgetValid, setBudgetValid] = useState(true);
@@ -51,13 +54,28 @@ export function GiftCard({
 
   useEffect(() => {
     if (editing) {
-      titleRef.current?.focus();
+      if (focusField.current === 'budget') document.getElementById(`${id}-budget`)?.focus();
+      else titleRef.current?.focus();
       if (focusRequest.id === focusKey) focusRequest.id = null;
     } else if (refocusMenu.current) {
       refocusMenu.current = false;
       menuBtn.current?.focus();
     }
-  }, [editing, focusKey]);
+  }, [editing, focusKey, id]);
+
+  const startEdit = (field: 'title' | 'budget' = 'title') => {
+    setDraftTitle(gift.title);
+    setDraftBudget(gift.budget);
+    setBudgetValid(true);
+    focusField.current = field;
+    setEditing(true);
+  };
+
+  const addItem = () => {
+    const itemId = newId();
+    focusRequest.id = `item-${itemId}`;
+    dispatch({ type: 'item/add', giftId: gift.id, id: itemId });
+  };
 
   // Elementet flyttes i DOM-en; sett fokus tilbake på menyknappen etterpå.
   const moveAndRefocus = (delta: -1 | 1) => {
@@ -93,12 +111,7 @@ export function GiftCard({
             {
               label: 'Rediger navn og budsjett',
               icon: 'edit',
-              onSelect: () => {
-                setDraftTitle(gift.title);
-                setDraftBudget(gift.budget);
-                setBudgetValid(true);
-                setEditing(true);
-              },
+              onSelect: () => startEdit(),
             },
             count > 1 && { label: 'Flytt opp', icon: 'up', disabled: index === 1, onSelect: () => moveAndRefocus(-1) },
             count > 1 && { label: 'Flytt ned', icon: 'down', disabled: index === count, onSelect: () => moveAndRefocus(1) },
@@ -123,7 +136,15 @@ export function GiftCard({
           <strong>{formatKr(bought)}</strong>
           {gift.budget != null ? <> av {formatKr(gift.budget)}</> : ' kjøpt'}
         </span>
-        {gift.budget != null && <span className="budget-label">{info.label}</span>}
+        {gift.budget != null ? (
+          <span className="budget-label">{info.label}</span>
+        ) : (
+          !editing && (
+            <button type="button" className="link-btn" onClick={() => startEdit('budget')}>
+              + Budsjett<span className="visually-hidden"> for {giftName}</span>
+            </button>
+          )
+        )}
         {planned !== bought && <span className="muted">planlagt {formatKr(planned)}</span>}
         {done && <span className="badge done">Alt kjøpt</span>}
         {allReceived(gift) && <span className="badge received">Alt mottatt</span>}
@@ -143,7 +164,14 @@ export function GiftCard({
             e.preventDefault();
             if (!budgetValid) return;
             dispatch({ type: 'gift/update', id: gift.id, patch: { title: draftTitle.trim(), budget: draftBudget } });
-            stopEdit();
+            if (firstSave.current && gift.items.length === 0) {
+              firstSave.current = false;
+              setEditing(false);
+              addItem();
+            } else {
+              firstSave.current = false;
+              stopEdit();
+            }
           }}
           onKeyDown={(e) => e.key === 'Escape' && stopEdit()}
         >
@@ -208,6 +236,7 @@ export function GiftCard({
                 moveTargets={moveTargets}
                 onMovedTo={onMovedTo}
                 onRemoved={() => addItemRef.current?.focus()}
+                onAddNext={addItem}
               />
             ))}
           </ul>
@@ -218,11 +247,7 @@ export function GiftCard({
       <button
         ref={addItemRef}
         className="add-item ghost with-icon"
-        onClick={() => {
-          const itemId = newId();
-          focusRequest.id = `item-${itemId}`;
-          dispatch({ type: 'item/add', giftId: gift.id, id: itemId });
-        }}
+        onClick={addItem}
       >
         <Icon name="plus" />
         Legg til ting<span className="visually-hidden"> i {giftName}</span>
