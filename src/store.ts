@@ -15,10 +15,10 @@ export type Action =
   | { type: 'person/rename'; id: Id; name: string }
   | { type: 'person/archive'; id: Id; archived: boolean }
   | { type: 'person/delete'; id: Id }
-  | { type: 'gift/add'; personId: Id; year: number }
+  | { type: 'gift/add'; personId: Id; year: number; id?: Id }
   | { type: 'gift/update'; id: Id; patch: Partial<Pick<Gift, 'title' | 'budget' | 'wrapped'>> }
   | { type: 'gift/delete'; id: Id }
-  | { type: 'item/add'; giftId: Id }
+  | { type: 'item/add'; giftId: Id; id?: Id }
   | { type: 'item/update'; giftId: Id; id: Id; patch: Partial<Omit<Item, 'id'>> }
   | { type: 'item/delete'; giftId: Id; id: Id }
   | { type: 'data/replace'; data: AppData };
@@ -56,7 +56,7 @@ export function reducer(data: AppData, action: Action): AppData {
         gifts: [
           ...data.gifts,
           {
-            id: newId(),
+            id: action.id ?? newId(),
             personId: action.personId,
             year: action.year,
             title: '',
@@ -75,7 +75,7 @@ export function reducer(data: AppData, action: Action): AppData {
         ...g,
         items: [
           ...g.items,
-          { id: newId(), name: '', price: 0, note: '', link: '', purchased: false, received: false },
+          { id: action.id ?? newId(), name: '', price: 0, note: '', link: '', purchased: false, received: false },
         ],
       }));
     case 'item/update':
