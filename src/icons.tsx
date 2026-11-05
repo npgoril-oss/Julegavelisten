@@ -8,7 +8,17 @@ const paths = {
   trash: 'M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6',
   move: 'M16 3l4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16',
   link: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  grip: 'M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01',
+  up: 'M12 19V5M5 12l7-7 7 7',
+  down: 'M12 5v14M19 12l-7 7-7-7',
+  sort: 'M3 6h11M3 12h8M3 18h5M17 4v16M14 17l3 3 3-3',
+  collapse: 'M7 11l5-5 5 5M7 18l5-5 5 5',
+  expand: 'M7 6l5 5 5-5M7 13l5 5 5-5',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
 } as const;
+
+const DOT_ICONS = new Set<IconName>(['more', 'grip']);
 
 export type IconName = keyof typeof paths;
 
@@ -21,7 +31,7 @@ export function Icon({ name }: { name: IconName }) {
       height="20"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth={DOT_ICONS.has(name) ? 3.5 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"

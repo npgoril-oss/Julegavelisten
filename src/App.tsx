@@ -1,44 +1,14 @@
-import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type RefObject } from 'react';
-import type { Gift, Item, Person } from './types';
-import { newId, useAppData, type Action } from './store';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
+import { byOrder, useAppData } from './store';
 import { StoragePanel } from './StoragePanel';
 import { UpdatePrompt } from './UpdatePrompt';
-import { Icon, IconButton } from './icons';
-import {
-  BUDGET_TOLERANCE,
-  allReceived,
-  availableYears,
-  compareToBudget,
-  currentYear,
-  formatKr,
-  isGiftDone,
-  plannedSum,
-  purchasedSum,
-  summarize,
-} from './logic';
-
-/**
- * Id på et felt som skal få fokus når det monteres (nytt item / ny gave).
- * Gir tastatur- og skjermleserbrukere en naturlig flyt etter «Legg til».
- */
-let pendingFocusId: string | null = null;
-function useFocusOnCreate<T extends HTMLElement>(id: string): RefObject<T | null> {
-  // Tom id = aldri fokus.
-  const ref = useRef<T>(null);
-  useEffect(() => {
-    if (id && pendingFocusId === id) {
-      pendingFocusId = null;
-      ref.current?.focus();
-    }
-  }, [id]);
-  return ref;
-}
-
-/** Én global, høflig live-region for statusmeldinger (WCAG 4.1.3). */
-let announceFn: (msg: string) => void = () => {};
-function announce(msg: string) {
-  announceFn(msg);
-}
+import { Icon } from './icons';
+import { MoreMenu } from './Menu';
+import { SortableList } from './Sortable';
+import { PersonCard } from './PersonCard';
+import { ProgressBar, announce, announcer, budgetInfo, giftLabel, type MoveTarget } from './ui';
+import { availableYears, currentYear, formatKr, summarize } from './logic';
 
 const COLLAPSED_KEY = 'julegavelisten:collapsed';
 function loadCollapsed(): Set<string> {
@@ -49,36 +19,15 @@ function loadCollapsed(): Set<string> {
   }
 }
 
-/** Gaver man kan flytte en ting til, gruppert per person. */
-export interface MoveTarget {
-  personId: string;
-  personName: string;
-  gifts: { id: string; name: string }[];
-}
-
-export const giftLabel = (g: Gift, index: number) => g.title.trim() || `Gave ${index}`;
-
-/** Sett fokus tilbake på en knapp når et redigeringsskjema lukkes (etter at knappen er rendret på nytt). */
-function useReturnFocus(open: boolean) {
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const pending = useRef(false);
-  useEffect(() => {
-    if (!open && pending.current) {
-      pending.current = false;
-      btnRef.current?.focus();
-    }
-  }, [open]);
-  return { btnRef, returnFocus: () => (pending.current = true) };
-}
-
 export default function App() {
   const store = useAppData();
   const { data, dispatch } = store;
   const [year, setYear] = useState(currentYear());
   const [showArchived, setShowArchived] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [message, setMessage] = useState('');
-  announceFn = (msg) => {
+  announcer.fn = (msg) => {
     // Tøm først så samme melding to ganger på rad også leses opp.
     setMessage('');
     requestAnimationFrame(() => setMessage(msg));
@@ -103,10 +52,10 @@ export default function App() {
   const years = useMemo(() => availableYears(data.gifts), [data.gifts]);
   const giftsThisYear = useMemo(() => data.gifts.filter((g) => g.year === year), [data.gifts, year]);
   const summary = summarize(giftsThisYear);
-  const persons = data.persons
-    .filter((p) => showArchived || !p.archived)
-    .sort((a, b) => a.name.localeCompare(b.name, 'nb'));
-  const giftsFor = (personId: string) => giftsThisYear.filter((g) => g.personId === personId);
+  const archivedCount = data.persons.filter((p) => p.archived).length;
+  const persons = data.persons.filter((p) => showArchived || !p.archived).sort(byOrder);
+  const personIds = persons.map((p) => p.id);
+  const giftsFor = (personId: string) => giftsThisYear.filter((g) => g.personId === personId).sort(byOrder);
   const moveTargets: MoveTarget[] = persons
     .filter((p) => !p.archived)
     .map((p) => ({
@@ -114,6 +63,23 @@ export default function App() {
       personName: p.name,
       gifts: giftsFor(p.id).map((g, i) => ({ id: g.id, name: giftLabel(g, i + 1) })),
     }));
+  const allCollapsed = persons.length > 0 && persons.every((p) => collapsed.has(p.id));
+
+  const reorderPersons = (ids: string[]) => dispatch({ type: 'person/reorder', ids });
+  const movePerson = (id: string, delta: -1 | 1) => {
+    const from = personIds.indexOf(id);
+    const to = from + delta;
+    if (to < 0 || to >= personIds.length) return;
+    reorderPersons(arrayMove(personIds, from, to));
+    announce(`${persons[from].name} flyttet til plass ${to + 1} av ${personIds.length}.`);
+  };
+  const sortAlphabetically = () => {
+    const ids = [...data.persons].sort((a, b) => a.name.localeCompare(b.name, 'nb')).map((p) => p.id);
+    dispatch({ type: 'person/reorder', ids });
+    announce('Personene er sortert alfabetisk.');
+  };
+
+  const yearBudget = budgetInfo(summary.purchasedWithBudget, summary.budget || null);
 
   return (
     <>
@@ -125,7 +91,7 @@ export default function App() {
           <span aria-hidden="true">🎄 </span>Julegavelisten
         </h1>
         <label className="year">
-          År
+          <span className="visually-hidden">Velg år</span>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => (
               <option key={y} value={y}>
@@ -138,28 +104,34 @@ export default function App() {
       </header>
 
       <main className="app">
-        <section aria-labelledby="oversikt-tittel">
+        <section className="overview" aria-labelledby="oversikt-tittel">
           <h2 id="oversikt-tittel" className="visually-hidden">
             Oversikt {year}
           </h2>
-          <dl className="summary">
-            <Stat label="Gaver alt kjøpt" value={`${summary.done} av ${summary.gifts}`} />
-            <Stat label="Pakket inn" value={`${summary.wrapped} av ${summary.gifts}`} />
-            <Stat label="Budsjett totalt" value={formatKr(summary.budget)} />
-            <Stat label="Kjøpt / bestilt" value={formatKr(summary.purchased)} />
-            <Stat label="Planlagt totalt" value={formatKr(summary.planned)} />
-          </dl>
-
+          <p className={`overview-line state-${yearBudget.state}`}>
+            <span>
+              Kjøpt <strong>{formatKr(summary.purchasedWithBudget)}</strong>
+              {summary.budget > 0 && <> av {formatKr(summary.budget)}</>}
+            </span>
+            {summary.budget > 0 && <span className="budget-label">{yearBudget.label}</span>}
+          </p>
           {summary.budget > 0 && (
-            <div className="year-budget">
-              <BudgetBar spent={summary.purchasedWithBudget} budget={summary.budget} name={`Totalt ${year}`} />
-              {summary.purchased !== summary.purchasedWithBudget && (
-                <p className="muted small">
-                  + {formatKr(summary.purchased - summary.purchasedWithBudget)} kjøpt på gaver uten budsjett
-                </p>
-              )}
+            <div className={`state-${yearBudget.state}`}>
+              <ProgressBar spent={summary.purchasedWithBudget} budget={summary.budget} name={`totalt ${year}`} />
             </div>
           )}
+          <p className="overview-stats muted">
+            <span>
+              Alt kjøpt {summary.done} av {summary.gifts}
+            </span>
+            <span>
+              Pakket inn {summary.wrapped} av {summary.gifts}
+            </span>
+            {summary.planned !== summary.purchased && <span>Planlagt {formatKr(summary.planned)}</span>}
+            {summary.purchased !== summary.purchasedWithBudget && (
+              <span>+ {formatKr(summary.purchased - summary.purchasedWithBudget)} uten budsjett</span>
+            )}
+          </p>
         </section>
 
         <StoragePanel
@@ -174,41 +146,79 @@ export default function App() {
           announce={announce}
         />
 
-        <AddPerson onAdd={(name) => dispatch({ type: 'person/add', name })} />
-
         <div className="toolbar">
-          <label className="check">
-            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-            Vis arkiverte personer
-          </label>
-          <div className="data-tools">
-            <button className="ghost" onClick={() => setCollapsed(new Set(persons.map((p) => p.id)))}>
-              Fold sammen alle
-            </button>
-            <button className="ghost" onClick={() => setCollapsed(new Set())}>
-              Vis alle
-            </button>
+          <button className="with-icon" aria-expanded={adding} onClick={() => setAdding((a) => !a)}>
+            <Icon name="plus" />
+            Ny person
+          </button>
+          <div className="toolbar-right">
+            {persons.length > 0 && (
+              <button
+                className="ghost with-icon"
+                onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(persons.map((p) => p.id)))}
+              >
+                <Icon name={allCollapsed ? 'expand' : 'collapse'} />
+                {allCollapsed ? 'Åpne alle' : 'Fold alle'}
+              </button>
+            )}
+            <MoreMenu
+              label="Flere valg for listen"
+              entries={[
+                { label: 'Sorter A–Å', icon: 'sort', disabled: data.persons.length < 2, onSelect: sortAlphabetically },
+                {
+                  label: `Vis arkiverte (${archivedCount})`,
+                  icon: 'eye',
+                  pressed: showArchived,
+                  onSelect: () => setShowArchived((v) => !v),
+                },
+              ]}
+            />
           </div>
         </div>
+
+        {adding && (
+          <AddPerson
+            onAdd={(name) => {
+              dispatch({ type: 'person/add', name });
+              announce(`${name} lagt til.`);
+            }}
+            onClose={() => setAdding(false)}
+          />
+        )}
 
         <section id="mottakere" aria-labelledby="mottakere-tittel" tabIndex={-1}>
           <h2 id="mottakere-tittel" className="visually-hidden">
             Mottakere
           </h2>
           {!store.ready && <p className="empty">Laster …</p>}
-          {store.ready && persons.length === 0 && <p className="empty">Ingen personer ennå. Legg til den første mottakeren over.</p>}
-          {persons.map((p) => (
-            <PersonCard
-              key={p.id}
-              person={p}
-              gifts={giftsFor(p.id)}
-              year={year}
-              dispatch={dispatch}
-              collapsed={collapsed.has(p.id)}
-              setCollapsed={setPersonCollapsed}
-              moveTargets={moveTargets}
-            />
-          ))}
+          {store.ready && persons.length === 0 && (
+            <p className="empty">Ingen personer ennå. Trykk «Ny person» for å legge til den første mottakeren.</p>
+          )}
+          {persons.length > 0 && (
+            <SortableList
+              ids={personIds}
+              labelOf={(id) => persons.find((p) => p.id === id)?.name ?? 'person'}
+              onReorder={reorderPersons}
+            >
+              <ul className="persons">
+                {persons.map((p, i) => (
+                  <PersonCard
+                    key={p.id}
+                    person={p}
+                    position={i + 1}
+                    count={persons.length}
+                    gifts={giftsFor(p.id)}
+                    year={year}
+                    dispatch={dispatch}
+                    collapsed={collapsed.has(p.id)}
+                    setCollapsed={setPersonCollapsed}
+                    moveTargets={moveTargets}
+                    onMove={(delta) => movePerson(p.id, delta)}
+                  />
+                ))}
+              </ul>
+            </SortableList>
+          )}
         </section>
       </main>
       <UpdatePrompt />
@@ -219,19 +229,12 @@ export default function App() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <dt className="stat-label">{label}</dt>
-      <dd className="stat-value">{value}</dd>
-    </div>
-  );
-}
-
-function AddPerson({ onAdd }: { onAdd: (name: string) => void }) {
+function AddPerson({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
   const [name, setName] = useState('');
   const [error, setError] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
+  useEffect(() => inputRef.current?.focus(), []);
   return (
     <form
       className="add-person"
@@ -242,727 +245,41 @@ function AddPerson({ onAdd }: { onAdd: (name: string) => void }) {
           setError(true);
           return;
         }
-        onAdd(name);
+        onAdd(name.trim());
         setName('');
         setError(false);
       }}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
-      <label htmlFor={`${id}-name`}>Ny mottaker</label>
+      <label htmlFor={`${id}-name`}>Navn på mottaker</label>
       <div className="add-person-row">
         <input
           id={`${id}-name`}
+          ref={inputRef}
           value={name}
           autoComplete="off"
+          enterKeyHint="done"
           aria-invalid={error || undefined}
-          aria-describedby={error ? `${id}-err` : undefined}
+          aria-describedby={error ? `${id}-err` : `${id}-hint`}
           onChange={(e) => {
             setName(e.target.value);
             if (e.target.value.trim()) setError(false);
           }}
         />
-        <button type="submit">Legg til person</button>
+        <button type="submit">Legg til</button>
+        <button type="button" className="ghost" onClick={onClose}>
+          Lukk
+        </button>
       </div>
-      {error && (
+      {error ? (
         <p id={`${id}-err`} className="field-error" role="alert">
           Skriv inn et navn.
         </p>
+      ) : (
+        <p id={`${id}-hint`} className="muted small">
+          Feltet blir stående åpent, så du kan legge til flere etter hverandre.
+        </p>
       )}
     </form>
-  );
-}
-
-function PersonCard({
-  person,
-  gifts,
-  year,
-  dispatch,
-  collapsed,
-  setCollapsed,
-  moveTargets,
-}: {
-  person: Person;
-  gifts: Gift[];
-  year: number;
-  dispatch: Dispatch<Action>;
-  collapsed: boolean;
-  setCollapsed: (id: string, value: boolean) => void;
-  moveTargets: MoveTarget[];
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(person.name);
-  const { btnRef: editBtn, returnFocus } = useReturnFocus(editing);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const id = useId();
-  const done = gifts.length > 0 && gifts.every(isGiftDone);
-  const total = summarize(gifts);
-  const hasBudget = gifts.some((g) => g.budget != null);
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus();
-  }, [editing]);
-
-  const finishEdit = (save: boolean) => {
-    if (save && draft.trim()) dispatch({ type: 'person/rename', id: person.id, name: draft.trim() });
-    returnFocus();
-    setEditing(false);
-  };
-
-  const summaryText =
-    gifts.length === 0
-      ? `Ingen gave i ${year}`
-      : `${gifts.length} ${gifts.length === 1 ? 'gave' : 'gaver'} · ${formatKr(total.purchased)} kjøpt` +
-        (hasBudget ? ` av ${formatKr(total.budget)}` : '');
-
-  return (
-    <article className={`person ${person.archived ? 'archived' : ''}`} aria-labelledby={`${id}-h`}>
-      <div className="person-head">
-        <h3 id={`${id}-h`} className="person-name">
-          <button
-            className="person-toggle"
-            aria-expanded={!collapsed}
-            aria-controls={`${id}-body`}
-            onClick={() => setCollapsed(person.id, !collapsed)}
-          >
-            <span className="chevron" aria-hidden="true" />
-            <span>
-              {person.name}
-              {person.archived && <span className="muted"> (arkivert)</span>}
-            </span>
-          </button>
-        </h3>
-        <div className="person-meta">
-          {done && <span className="badge done">Alt kjøpt</span>}
-          <span className="person-total">{summaryText}</span>
-        </div>
-      </div>
-
-      <div id={`${id}-body`} hidden={collapsed}>
-        {editing ? (
-          <form
-            className="rename"
-            onSubmit={(e) => {
-              e.preventDefault();
-              finishEdit(true);
-            }}
-          >
-            <div className="field">
-              <label htmlFor={`${id}-input`}>Navn</label>
-              <input
-                id={`${id}-input`}
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => e.key === 'Escape' && finishEdit(false)}
-              />
-            </div>
-            <button type="submit">Lagre</button>
-            <button type="button" className="ghost" onClick={() => finishEdit(false)}>
-              Avbryt
-            </button>
-          </form>
-        ) : (
-          <div className="person-actions">
-            <button
-              className="with-icon"
-              onClick={() => {
-                const giftId = newId();
-                pendingFocusId = `gift-${giftId}`;
-                dispatch({ type: 'gift/add', personId: person.id, year, id: giftId });
-              }}
-            >
-              <Icon name="plus" />
-              Ny gave<span className="visually-hidden"> til {person.name}</span>
-            </button>
-            <div className="icon-group">
-              <IconButton
-                ref={editBtn}
-                icon="edit"
-                label={`Endre navn på ${person.name}`}
-                onClick={() => {
-                  setDraft(person.name);
-                  setEditing(true);
-                }}
-              />
-              <IconButton
-                icon={person.archived ? 'restore' : 'archive'}
-                label={person.archived ? `Gjenopprett ${person.name}` : `Arkiver ${person.name}`}
-                onClick={() => {
-                  dispatch({ type: 'person/archive', id: person.id, archived: !person.archived });
-                  announce(person.archived ? `${person.name} gjenopprettet.` : `${person.name} arkivert.`);
-                }}
-              />
-              <IconButton
-                icon="trash"
-                danger
-                label={`Slett ${person.name}`}
-                onClick={() => {
-                  if (confirm(`Slette ${person.name} og alle gaver for alle år?`)) {
-                    dispatch({ type: 'person/delete', id: person.id });
-                    announce(`${person.name} slettet.`);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-        {gifts.map((g, idx) => (
-          <GiftCard
-            key={g.id}
-            gift={g}
-            index={idx + 1}
-            person={person}
-            year={year}
-            dispatch={dispatch}
-            moveTargets={moveTargets}
-            onMovedTo={(personId) => setCollapsed(personId, false)}
-          />
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function GiftCard({
-  gift,
-  index,
-  person,
-  year,
-  dispatch,
-  moveTargets,
-  onMovedTo,
-}: {
-  gift: Gift;
-  index: number;
-  person: Person;
-  year: number;
-  dispatch: Dispatch<Action>;
-  moveTargets: MoveTarget[];
-  onMovedTo: (personId: string) => void;
-}) {
-  const id = useId();
-  const focusKey = `gift-${gift.id}`;
-  // En nyopprettet gave åpnes direkte i redigering.
-  const [editing, setEditing] = useState(() => pendingFocusId === focusKey);
-  const [draftTitle, setDraftTitle] = useState(gift.title);
-  const [draftBudget, setDraftBudget] = useState<number | null>(gift.budget);
-  const [budgetValid, setBudgetValid] = useState(true);
-  const titleRef = useFocusOnCreate<HTMLInputElement>(focusKey);
-  const { btnRef: editBtn, returnFocus } = useReturnFocus(editing);
-  const addItemRef = useRef<HTMLButtonElement>(null);
-  const bought = purchasedSum(gift);
-  const planned = plannedSum(gift);
-  const done = isGiftDone(gift);
-  const giftName = giftLabel(gift, index);
-
-  const startEdit = () => {
-    setDraftTitle(gift.title);
-    setDraftBudget(gift.budget);
-    setBudgetValid(true);
-    setEditing(true);
-  };
-  useEffect(() => {
-    if (editing) titleRef.current?.focus();
-  }, [editing, titleRef]);
-
-  const stopEdit = () => {
-    returnFocus();
-    setEditing(false);
-  };
-
-  return (
-    <section className={`gift ${done ? 'is-done' : ''}`} aria-labelledby={`${id}-h`}>
-      {editing ? (
-        <form
-          className="gift-edit"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!budgetValid) return;
-            dispatch({ type: 'gift/update', id: gift.id, patch: { title: draftTitle.trim(), budget: draftBudget } });
-            stopEdit();
-          }}
-          onKeyDown={(e) => e.key === 'Escape' && stopEdit()}
-        >
-          <h4 id={`${id}-h`} className="visually-hidden">
-            Rediger {giftName} til {person.name}
-          </h4>
-          <div className="field gift-title">
-            <label htmlFor={`${id}-title`}>Navn på gave</label>
-            <input
-              id={`${id}-title`}
-              ref={titleRef}
-              value={draftTitle}
-              placeholder={`Gave ${index}`}
-              onChange={(e) => setDraftTitle(e.target.value)}
-            />
-          </div>
-          <div className="field budget">
-            <label htmlFor={`${id}-budget`}>Budsjett (kr)</label>
-            <MoneyInput
-              id={`${id}-budget`}
-              value={draftBudget}
-              allowEmpty
-              onChange={setDraftBudget}
-              onValidChange={setBudgetValid}
-            />
-          </div>
-          <div className="gift-edit-actions">
-            <button type="submit">Lagre</button>
-            <button type="button" className="ghost" onClick={stopEdit}>
-              Avbryt
-            </button>
-            <IconButton
-              icon="trash"
-              danger
-              label={`Slett ${giftName}`}
-              onClick={() => {
-                if (confirm(`Slette «${giftName}» og alle ting i den?`)) {
-                  dispatch({ type: 'gift/delete', id: gift.id });
-                  announce(`${giftName} slettet.`);
-                }
-              }}
-            />
-          </div>
-        </form>
-      ) : (
-        <div className="gift-head">
-          <h4 id={`${id}-h`} className="gift-name">
-            {giftName}
-            <span className="visually-hidden"> til {person.name}</span>
-          </h4>
-          <div className="gift-head-actions">
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={gift.wrapped}
-                onChange={(e) =>
-                  dispatch({ type: 'gift/update', id: gift.id, patch: { wrapped: e.target.checked } })
-                }
-              />
-              Pakket inn
-            </label>
-            <IconButton ref={editBtn} icon="edit" label={`Rediger ${giftName}`} onClick={startEdit} />
-          </div>
-        </div>
-      )}
-
-      <BudgetBar spent={bought} budget={gift.budget} name={giftName} />
-      <div className="gift-status">
-        {planned !== bought && <span className="muted">Planlagt totalt: {formatKr(planned)}</span>}
-        {done && <span className="badge done">Alt kjøpt</span>}
-        {gift.wrapped && <span className="badge wrapped">Pakket inn</span>}
-        {allReceived(gift) && <span className="badge received">Alt mottatt</span>}
-      </div>
-
-      {gift.items.length > 0 && (
-        <>
-          <ul className="items" aria-label={`Ting i ${giftName}`}>
-            {gift.items.map((i, n) => (
-              <ItemRow
-                key={i.id}
-                item={i}
-                index={n + 1}
-                gift={gift}
-                person={person}
-                year={year}
-                dispatch={dispatch}
-                moveTargets={moveTargets}
-                onMovedTo={onMovedTo}
-                onRemoved={() => addItemRef.current?.focus()}
-              />
-            ))}
-          </ul>
-        </>
-      )}
-      <button
-        ref={addItemRef}
-        className="add-item with-icon"
-        onClick={() => {
-          const itemId = newId();
-          pendingFocusId = `item-${itemId}`;
-          dispatch({ type: 'item/add', giftId: gift.id, id: itemId });
-        }}
-      >
-        <Icon name="plus" />
-        Legg til ting<span className="visually-hidden"> i {giftName}</span>
-      </button>
-    </section>
-  );
-}
-
-const NEW_GIFT = '__ny__';
-
-function ItemRow({
-  item,
-  index,
-  gift,
-  person,
-  year,
-  dispatch,
-  moveTargets,
-  onMovedTo,
-  onRemoved,
-}: {
-  item: Item;
-  index: number;
-  gift: Gift;
-  person: Person;
-  year: number;
-  dispatch: Dispatch<Action>;
-  moveTargets: MoveTarget[];
-  onMovedTo: (personId: string) => void;
-  onRemoved: () => void;
-}) {
-  const id = useId();
-  const focusKey = `item-${item.id}`;
-  // Ny ting åpnes i redigering. En flyttet ting har samme fokusnøkkel, men er ikke tom.
-  const [isNew] = useState(() => pendingFocusId === focusKey && !item.name && !item.price);
-  const [mode, setMode] = useState<'view' | 'edit' | 'move'>(isNew ? 'edit' : 'view');
-  const [draft, setDraft] = useState({ name: item.name, price: item.price, link: item.link, note: item.note });
-  const [priceValid, setPriceValid] = useState(true);
-  const [target, setTarget] = useState('');
-  const editFocus = useReturnFocus(mode === 'edit');
-  const moveFocus = useReturnFocus(mode === 'move');
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const viewFocusRef = useFocusOnCreate<HTMLButtonElement>(isNew ? '' : focusKey);
-  const selectRef = useRef<HTMLSelectElement>(null);
-
-  const update = (patch: Partial<Omit<Item, 'id'>>) =>
-    dispatch({ type: 'item/update', giftId: gift.id, id: item.id, patch });
-  const safeLink = /^https?:\/\//i.test(item.link) ? item.link : null;
-  const itemName = item.name.trim() || `Ting ${index}`;
-
-  useEffect(() => {
-    if (mode === 'edit') nameInputRef.current?.focus();
-    if (mode === 'move') selectRef.current?.focus();
-    if (isNew && pendingFocusId === focusKey) pendingFocusId = null;
-  }, [mode, isNew, focusKey]);
-
-  const remove = () => {
-    dispatch({ type: 'item/delete', giftId: gift.id, id: item.id });
-    onRemoved();
-  };
-
-  const startEdit = () => {
-    setDraft({ name: item.name, price: item.price, link: item.link, note: item.note });
-    setPriceValid(true);
-    setMode('edit');
-  };
-  const closeEdit = () => {
-    editFocus.returnFocus();
-    setMode('view');
-  };
-  const cancelEdit = () => {
-    // Avbryt på en helt ny, tom ting fjerner den igjen.
-    if (isNew && !item.name && !item.price && !item.link && !item.note) remove();
-    else closeEdit();
-  };
-  const closeMove = () => {
-    moveFocus.returnFocus();
-    setMode('view');
-  };
-
-  const doMove = () => {
-    if (!target) return;
-    let toGiftId = target;
-    let toPersonId: string;
-    let toLabel: string;
-    if (target === NEW_GIFT) {
-      toGiftId = newId();
-      toPersonId = person.id;
-      toLabel = `ny gave til ${person.name}`;
-      dispatch({ type: 'gift/add', personId: person.id, year, id: toGiftId });
-    } else {
-      const group = moveTargets.find((t) => t.gifts.some((g) => g.id === target))!;
-      toPersonId = group.personId;
-      toLabel = `${group.gifts.find((g) => g.id === target)!.name} til ${group.personName}`;
-    }
-    pendingFocusId = focusKey;
-    onMovedTo(toPersonId);
-    dispatch({ type: 'item/move', fromGiftId: gift.id, id: item.id, toGiftId });
-    announce(`«${itemName}» flyttet til ${toLabel}.`);
-  };
-
-  if (mode === 'edit') {
-    return (
-      <li className="item editing">
-        <form
-          className="item-edit"
-          noValidate
-          aria-label={`Rediger ${itemName}`}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!priceValid) return;
-            update({ ...draft, name: draft.name.trim(), link: draft.link.trim() });
-            closeEdit();
-          }}
-          onKeyDown={(e) => e.key === 'Escape' && cancelEdit()}
-        >
-          <div className="field f-name">
-            <label htmlFor={`${id}-name`}>Navn / beskrivelse</label>
-            <input
-              id={`${id}-name`}
-              ref={nameInputRef}
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </div>
-          <div className="field f-price">
-            <label htmlFor={`${id}-price`}>Pris (kr)</label>
-            <MoneyInput
-              id={`${id}-price`}
-              value={draft.price}
-              onChange={(v) => setDraft((d) => ({ ...d, price: v ?? 0 }))}
-              onValidChange={setPriceValid}
-            />
-          </div>
-          <div className="field f-link">
-            <label htmlFor={`${id}-link`}>Lenke</label>
-            <input
-              id={`${id}-link`}
-              type="url"
-              inputMode="url"
-              autoComplete="off"
-              placeholder="https://"
-              value={draft.link}
-              onChange={(e) => setDraft({ ...draft, link: e.target.value })}
-            />
-          </div>
-          <div className="field f-note">
-            <label htmlFor={`${id}-note`}>Notat</label>
-            <input id={`${id}-note`} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
-          </div>
-          <div className="form-actions">
-            <button type="submit">Lagre</button>
-            <button type="button" className="ghost" onClick={cancelEdit}>
-              Avbryt
-            </button>
-          </div>
-        </form>
-      </li>
-    );
-  }
-
-  return (
-    <li className={`item ${item.purchased ? 'purchased' : ''}`}>
-      <div className="item-main">
-        <span className="item-name">{itemName}</span>
-        {item.note && <span className="item-note">{item.note}</span>}
-      </div>
-      <span className="item-price">{formatKr(item.price)}</span>
-      <div className="item-checks">
-        <label className="check">
-          <input type="checkbox" checked={item.purchased} onChange={(e) => update({ purchased: e.target.checked })} />
-          <span>
-            Kjøpt<span className="visually-hidden"> {itemName}</span>
-          </span>
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={item.received} onChange={(e) => update({ received: e.target.checked })} />
-          <span>
-            Mottatt<span className="visually-hidden"> {itemName}</span>
-          </span>
-        </label>
-      </div>
-      <div className="item-actions">
-        {safeLink && (
-          <a
-            className="icon-btn ghost"
-            href={safeLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Åpne lenke (ny fane)"
-          >
-            <Icon name="link" />
-            <span className="visually-hidden">Åpne lenke til {itemName} (ny fane)</span>
-          </a>
-        )}
-        <IconButton
-          ref={(el) => {
-            editFocus.btnRef.current = el;
-            viewFocusRef.current = el;
-          }}
-          icon="edit"
-          label={`Rediger ${itemName}`}
-          onClick={startEdit}
-        />
-        <IconButton
-          ref={moveFocus.btnRef}
-          icon="move"
-          label={`Flytt ${itemName}`}
-          aria-expanded={mode === 'move'}
-          aria-controls={`${id}-move`}
-          onClick={() => {
-            if (mode === 'move') closeMove();
-            else {
-              setTarget('');
-              setMode('move');
-            }
-          }}
-        />
-        <IconButton
-          icon="trash"
-          danger
-          label={`Slett ${itemName}`}
-          onClick={() => {
-            if (confirm(`Slette «${itemName}»?`)) {
-              remove();
-              announce(`«${itemName}» slettet.`);
-            }
-          }}
-        />
-      </div>
-
-      {mode === 'move' && (
-        <form
-          id={`${id}-move`}
-          className="move-panel"
-          onSubmit={(e) => {
-            e.preventDefault();
-            doMove();
-          }}
-          onKeyDown={(e) => e.key === 'Escape' && closeMove()}
-        >
-          <div className="field">
-            <label htmlFor={`${id}-target`}>Flytt «{itemName}» til</label>
-            <select id={`${id}-target`} ref={selectRef} value={target} onChange={(e) => setTarget(e.target.value)}>
-              <option value="" disabled>
-                Velg gave …
-              </option>
-              {moveTargets.map((t) => {
-                const options = t.gifts.filter((g) => g.id !== gift.id);
-                const isOwn = t.personId === person.id;
-                if (options.length === 0 && !isOwn) return null;
-                return (
-                  <optgroup key={t.personId} label={t.personName}>
-                    {options.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name} ({t.personName})
-                      </option>
-                    ))}
-                    {isOwn && <option value={NEW_GIFT}>Ny gave til {t.personName}</option>}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </div>
-          <button type="submit" disabled={!target}>
-            Flytt
-          </button>
-          <button type="button" className="ghost" onClick={closeMove}>
-            Avbryt
-          </button>
-        </form>
-      )}
-    </li>
-  );
-}
-
-/** Beløpsfelt som tåler norsk komma, mellomrom og tomt felt mens man skriver, og sier fra ved ugyldig verdi. */
-function MoneyInput({
-  id,
-  value,
-  onChange,
-  allowEmpty = false,
-  onValidChange,
-}: {
-  id: string;
-  value: number | null;
-  onChange: (v: number | null) => void;
-  allowEmpty?: boolean;
-  onValidChange?: (valid: boolean) => void;
-}) {
-  const toText = (v: number | null) => (v == null ? '' : String(v).replace('.', ','));
-  const [text, setText] = useState(toText(value));
-  const [focused, setFocused] = useState(false);
-  const [invalid, setInvalidState] = useState(false);
-  const setInvalid = (v: boolean) => {
-    setInvalidState(v);
-    onValidChange?.(!v);
-  };
-  const shown = focused || invalid ? text : toText(value);
-  return (
-    <>
-      <input
-        id={id}
-        inputMode="decimal"
-        autoComplete="off"
-        className="money"
-        value={shown}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? `${id}-err` : undefined}
-        onFocus={() => {
-          if (!invalid) setText(toText(value));
-          setFocused(true);
-        }}
-        onBlur={() => setFocused(false)}
-        onChange={(e) => {
-          const t = e.target.value;
-          setText(t);
-          const cleaned = t.replace(/\s/g, '').replace(',', '.');
-          if (cleaned === '') {
-            setInvalid(false);
-            onChange(allowEmpty ? null : 0);
-          } else if (/^\d+(\.\d{0,2})?$/.test(cleaned)) {
-            setInvalid(false);
-            onChange(Number(cleaned));
-          } else {
-            setInvalid(true);
-          }
-        }}
-      />
-      {invalid && (
-        <span id={`${id}-err`} className="field-error" role="alert">
-          Skriv et beløp, f.eks. 249,90
-        </span>
-      )}
-    </>
-  );
-}
-
-/** Viser hvordan kjøpt sum ligger an mot budsjettet (± BUDGET_TOLERANCE regnes som «på budsjett»). */
-export function BudgetBar({ spent, budget, name }: { spent: number; budget: number | null; name: string }) {
-  if (budget == null) {
-    return (
-      <p className="budget-line">
-        Kjøpt/bestilt: <strong>{formatKr(spent)}</strong> <span className="muted">(ingen budsjett satt)</span>
-      </p>
-    );
-  }
-  const state = compareToBudget(spent, budget);
-  const diff = budget - spent;
-  const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : spent > 0 ? 100 : 0;
-  const label =
-    state === 'over'
-      ? `${formatKr(-diff)} over budsjett`
-      : state === 'within'
-        ? diff >= 0
-          ? `På budsjett (${formatKr(diff)} igjen)`
-          : `På budsjett (${formatKr(-diff)} over)`
-        : `${formatKr(diff)} igjen`;
-  return (
-    <div className={`budget-line state-${state}`}>
-      <div className="budget-text">
-        <span>
-          Kjøpt/bestilt: <strong>{formatKr(spent)}</strong> av {formatKr(budget)}
-        </span>
-        <span className="budget-label">
-          {state === 'over' && <span aria-hidden="true">⚠ </span>}
-          {label}
-        </span>
-      </div>
-      <div
-        className="bar"
-        role="progressbar"
-        aria-label={`Budsjettforbruk ${name}`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(pct)}
-        aria-valuetext={`${formatKr(spent)} av ${formatKr(budget)}. ${label}`}
-      >
-        <div className="bar-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span className="visually-hidden">«På budsjett» betyr innenfor ±{BUDGET_TOLERANCE} kr.</span>
-    </div>
   );
 }
