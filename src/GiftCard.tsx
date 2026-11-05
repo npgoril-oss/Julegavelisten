@@ -145,7 +145,7 @@ export function GiftCard({
             </button>
           )
         )}
-        {planned !== bought && <span className="muted">planlagt {formatKr(planned)}</span>}
+        {planned > 0 && <span className="muted">planlagt {formatKr(planned)}</span>}
         {done && (
           <span className="badge done">
             <span aria-hidden="true">🎁 </span>Alt kjøpt
