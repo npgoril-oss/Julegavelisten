@@ -19,6 +19,7 @@ const paths = {
   sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z',
   phone: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2',
+  lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
 } as const;
 
 const DOT_ICONS = new Set<IconName>(['more', 'grip']);
@@ -54,6 +55,7 @@ export function IconButton({
   label,
   danger,
   ref,
+  className,
   ...rest
 }: {
   icon: IconName;
@@ -65,7 +67,7 @@ export function IconButton({
     <button
       ref={ref}
       type="button"
-      className={`icon-btn ghost${danger ? ' danger' : ''}`}
+      className={`icon-btn ghost${danger ? ' danger' : ''}${className ? ` ${className}` : ''}`}
       title={typeof label === 'string' ? label : undefined}
       {...rest}
     >

@@ -184,6 +184,32 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
   border: 1px solid rgb(255 255 255 / 0.7);
 }
 .topbar option { color: #1f2421; background: #ffffff; }
+.topbar-inner:has(.lock-now) { grid-template-columns: minmax(0, 1fr) auto auto; }
+.topbar .lock-now { color: var(--pine-text); }
+.topbar .lock-now:hover { border-color: rgb(255 255 255 / 0.7); }
+
+/* ---------- PIN-lås ---------- */
+.lock-screen { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.lock-body { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; }
+.lock-card {
+  width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px;
+  padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+}
+.lock-card form { width: 100%; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.lock-card label { font-weight: 600; }
+.lock-card input { font-size: 1.5rem; letter-spacing: 0.4em; text-align: center; }
+.lock-icon {
+  display: inline-flex; width: 56px; height: 56px; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--done-bg); color: var(--done);
+}
+.lock-icon .icon { width: 28px; height: 28px; }
+.lock-card h2 { font-size: 1.25rem; }
+.lock-forgot { display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 0.9375rem; }
+.pin-settings {
+  background: var(--card); border: 1px solid var(--divider); border-radius: 8px; padding: 10px 12px;
+  display: grid; gap: 8px;
+}
+.pin-title { font-size: 1.0625rem; }
 .year select { width: auto; min-height: 40px; padding: 4px 8px; }
 .app { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .empty { color: var(--muted); text-align: center; padding: 32px 0; }

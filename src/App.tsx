@@ -3,8 +3,11 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { byOrder, useAppData } from './store';
 import { StoragePanel } from './StoragePanel';
 import { UpdatePrompt } from './UpdatePrompt';
-import { Icon } from './icons';
+import { Icon, IconButton } from './icons';
 import { MoreMenu } from './Menu';
+import { LockScreen } from './LockScreen';
+import { PinSettings, type PinMode } from './PinSettings';
+import { loadLastActive, loadLock, saveLastActive, saveLock, shouldBeLocked, type LockConfig } from './lock';
 import { applyTheme, getThemePref, setThemePref, type ThemePref } from './theme';
 import { DragRoot, SortableGroup, dragId, type DropResult } from './Sortable';
 import { PersonCard } from './PersonCard';
@@ -20,9 +23,84 @@ function loadCollapsed(): Set<string> {
   }
 }
 
+/** Toppnivå: håndterer PIN-lås rundt selve appen. */
 export default function App() {
   const store = useAppData();
+  const [lockCfg, setLockCfg] = useState<LockConfig | null>(loadLock);
+  const [locked, setLocked] = useState(() => shouldBeLocked(loadLock(), loadLastActive(), Date.now()));
+  const lastActive = useRef<number>(loadLastActive() ?? 0);
+
+  // Registrer aktivitet (maks hvert 5. sekund) og lås etter 15 minutter uten bruk.
+  useEffect(() => {
+    if (!lockCfg || locked) return;
+    const touch = () => {
+      const now = Date.now();
+      if (now - lastActive.current > 5000) {
+        lastActive.current = now;
+        saveLastActive(now);
+      }
+    };
+    const check = () => {
+      if (shouldBeLocked(lockCfg, lastActive.current, Date.now())) setLocked(true);
+    };
+    touch();
+    const onVisible = () => (document.visibilityState === 'visible' ? check() : undefined);
+    window.addEventListener('pointerdown', touch);
+    window.addEventListener('keydown', touch);
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(check, 30_000);
+    return () => {
+      window.removeEventListener('pointerdown', touch);
+      window.removeEventListener('keydown', touch);
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
+  }, [lockCfg, locked]);
+
+  const lock = {
+    cfg: lockCfg,
+    lockNow: () => {
+      saveLastActive(null);
+      lastActive.current = 0;
+      setLocked(true);
+    },
+    setCfg: (cfg: LockConfig | null) => {
+      saveLock(cfg);
+      setLockCfg(cfg);
+    },
+  };
+
+  if (lockCfg && locked) {
+    return (
+      <LockScreen
+        cfg={lockCfg}
+        onUnlock={() => {
+          lastActive.current = Date.now();
+          saveLastActive(lastActive.current);
+          setLocked(false);
+        }}
+        onRestore={(data, backedUpAt) => {
+          store.restore(data, backedUpAt);
+          lock.setCfg(null);
+          setLocked(false);
+          setTimeout(() => announce('Sikkerhetskopi gjenopprettet og PIN-låsen er slått av. Velg ny kode under Flere valg.'), 300);
+        }}
+      />
+    );
+  }
+  return <GiftApp store={store} lock={lock} />;
+}
+
+type Store = ReturnType<typeof useAppData>;
+interface LockControls {
+  cfg: LockConfig | null;
+  lockNow: () => void;
+  setCfg: (cfg: LockConfig | null) => void;
+}
+
+function GiftApp({ store, lock }: { store: Store; lock: LockControls }) {
   const { data, dispatch } = store;
+  const [pinMode, setPinMode] = useState<PinMode | null>(null);
   const [year, setYear] = useState(currentYear());
   const [showArchived, setShowArchived] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -140,6 +218,9 @@ export default function App() {
             ))}
           </select>
         </label>
+        {lock.cfg && (
+          <IconButton icon="lock" label="Lås appen nå" className="lock-now" onClick={lock.lockNow} />
+        )}
         <p className="countdown">
           <span aria-hidden="true">✨ </span>
           {countdown.label}
@@ -216,6 +297,11 @@ export default function App() {
                   onSelect: () => setShowArchived((v) => !v),
                 },
                 'separator',
+                !lock.cfg && { label: 'Lås med PIN-kode', icon: 'lock', onSelect: () => setPinMode('set') },
+                lock.cfg && { label: 'Lås nå', icon: 'lock', onSelect: lock.lockNow },
+                lock.cfg && { label: 'Endre PIN-kode', icon: 'edit', onSelect: () => setPinMode('change') },
+                lock.cfg && { label: 'Slå av PIN-lås', icon: 'lock', onSelect: () => setPinMode('disable') },
+                'separator',
                 { label: 'Lyst tema', icon: 'sun', pressed: theme === 'light', choice: true, onSelect: () => chooseTheme('light') },
                 { label: 'Mørkt tema', icon: 'moon', pressed: theme === 'dark', choice: true, onSelect: () => chooseTheme('dark') },
                 {
@@ -237,6 +323,25 @@ export default function App() {
               announce(`${name} lagt til.`);
             }}
             onClose={() => setAdding(false)}
+          />
+        )}
+
+        {pinMode && (
+          <PinSettings
+            mode={pinMode}
+            current={lock.cfg}
+            onClose={() => setPinMode(null)}
+            onDone={(cfg) => {
+              lock.setCfg(cfg);
+              setPinMode(null);
+              announce(
+                pinMode === 'disable'
+                  ? 'PIN-låsen er slått av.'
+                  : pinMode === 'change'
+                    ? 'PIN-koden er endret.'
+                    : 'PIN-lås er slått på. Appen låses etter 15 minutter uten bruk.',
+              );
+            }}
           />
         )}
 
