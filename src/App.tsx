@@ -30,10 +30,70 @@ function useFocusOnCreate<T extends HTMLElement>(id: string): RefObject<T | null
   return ref;
 }
 
+/** Én global, høflig live-region for statusmeldinger (WCAG 4.1.3). */
+let announceFn: (msg: string) => void = () => {};
+function announce(msg: string) {
+  announceFn(msg);
+}
+
+const COLLAPSED_KEY = 'julegavelisten:collapsed';
+function loadCollapsed(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Gaver man kan flytte en ting til, gruppert per person. */
+export interface MoveTarget {
+  personId: string;
+  personName: string;
+  gifts: { id: string; name: string }[];
+}
+
+export const giftLabel = (g: Gift, index: number) => g.title.trim() || `Gave ${index}`;
+
+/** Sett fokus tilbake på en knapp når et redigeringsskjema lukkes (etter at knappen er rendret på nytt). */
+function useReturnFocus(open: boolean) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const pending = useRef(false);
+  useEffect(() => {
+    if (!open && pending.current) {
+      pending.current = false;
+      btnRef.current?.focus();
+    }
+  }, [open]);
+  return { btnRef, returnFocus: () => (pending.current = true) };
+}
+
 export default function App() {
   const [data, dispatch] = useAppData();
   const [year, setYear] = useState(currentYear());
   const [showArchived, setShowArchived] = useState(false);
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+  const [message, setMessage] = useState('');
+  announceFn = (msg) => {
+    // Tøm først så samme melding to ganger på rad også leses opp.
+    setMessage('');
+    requestAnimationFrame(() => setMessage(msg));
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed]));
+    } catch {
+      /* ikke kritisk */
+    }
+  }, [collapsed]);
+
+  const setPersonCollapsed = (id: string, value: boolean) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (value) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   const years = useMemo(() => availableYears(data.gifts), [data.gifts]);
   const giftsThisYear = useMemo(() => data.gifts.filter((g) => g.year === year), [data.gifts, year]);
@@ -41,6 +101,14 @@ export default function App() {
   const persons = data.persons
     .filter((p) => showArchived || !p.archived)
     .sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+  const giftsFor = (personId: string) => giftsThisYear.filter((g) => g.personId === personId);
+  const moveTargets: MoveTarget[] = persons
+    .filter((p) => !p.archived)
+    .map((p) => ({
+      personId: p.id,
+      personName: p.name,
+      gifts: giftsFor(p.id).map((g, i) => ({ id: g.id, name: giftLabel(g, i + 1) })),
+    }));
 
   return (
     <>
@@ -96,6 +164,14 @@ export default function App() {
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
             Vis arkiverte personer
           </label>
+          <div className="data-tools">
+            <button className="ghost" onClick={() => setCollapsed(new Set(persons.map((p) => p.id)))}>
+              Fold sammen alle
+            </button>
+            <button className="ghost" onClick={() => setCollapsed(new Set())}>
+              Vis alle
+            </button>
+          </div>
           <DataTools data={data} dispatch={dispatch} />
         </div>
 
@@ -108,13 +184,19 @@ export default function App() {
             <PersonCard
               key={p.id}
               person={p}
-              gifts={giftsThisYear.filter((g) => g.personId === p.id)}
+              gifts={giftsFor(p.id)}
               year={year}
               dispatch={dispatch}
+              collapsed={collapsed.has(p.id)}
+              setCollapsed={setPersonCollapsed}
+              moveTargets={moveTargets}
             />
           ))}
         </section>
       </main>
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {message}
+      </div>
     </>
   );
 }
@@ -176,17 +258,23 @@ function PersonCard({
   gifts,
   year,
   dispatch,
+  collapsed,
+  setCollapsed,
+  moveTargets,
 }: {
   person: Person;
   gifts: Gift[];
   year: number;
   dispatch: Dispatch<Action>;
+  collapsed: boolean;
+  setCollapsed: (id: string, value: boolean) => void;
+  moveTargets: MoveTarget[];
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(person.name);
-  const editBtn = useRef<HTMLButtonElement>(null);
+  const { btnRef: editBtn, returnFocus } = useReturnFocus(editing);
   const inputRef = useRef<HTMLInputElement>(null);
-  const headingId = useId();
+  const id = useId();
   const done = gifts.length > 0 && gifts.every(isGiftDone);
   const total = summarize(gifts);
   const hasBudget = gifts.some((g) => g.budget != null);
@@ -197,13 +285,40 @@ function PersonCard({
 
   const finishEdit = (save: boolean) => {
     if (save && draft.trim()) dispatch({ type: 'person/rename', id: person.id, name: draft.trim() });
+    returnFocus();
     setEditing(false);
-    requestAnimationFrame(() => editBtn.current?.focus());
   };
 
+  const summaryText =
+    gifts.length === 0
+      ? `Ingen gave i ${year}`
+      : `${gifts.length} ${gifts.length === 1 ? 'gave' : 'gaver'} · ${formatKr(total.purchased)} kjøpt` +
+        (hasBudget ? ` av ${formatKr(total.budget)}` : '');
+
   return (
-    <article className={`person ${person.archived ? 'archived' : ''}`} aria-labelledby={headingId}>
+    <article className={`person ${person.archived ? 'archived' : ''}`} aria-labelledby={`${id}-h`}>
       <div className="person-head">
+        <h3 id={`${id}-h`} className="person-name">
+          <button
+            className="person-toggle"
+            aria-expanded={!collapsed}
+            aria-controls={`${id}-body`}
+            onClick={() => setCollapsed(person.id, !collapsed)}
+          >
+            <span className="chevron" aria-hidden="true" />
+            <span>
+              {person.name}
+              {person.archived && <span className="muted"> (arkivert)</span>}
+            </span>
+          </button>
+        </h3>
+        <div className="person-meta">
+          {done && <span className="badge done">Alt kjøpt</span>}
+          <span className="person-total">{summaryText}</span>
+        </div>
+      </div>
+
+      <div id={`${id}-body`} hidden={collapsed}>
         {editing ? (
           <form
             className="rename"
@@ -212,48 +327,32 @@ function PersonCard({
               finishEdit(true);
             }}
           >
-            <label className="visually-hidden" htmlFor={`${headingId}-input`}>
-              Navn
-            </label>
-            <input
-              id={`${headingId}-input`}
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Escape' && finishEdit(false)}
-            />
+            <div className="field">
+              <label htmlFor={`${id}-input`}>Navn</label>
+              <input
+                id={`${id}-input`}
+                ref={inputRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && finishEdit(false)}
+              />
+            </div>
             <button type="submit">Lagre</button>
             <button type="button" className="ghost" onClick={() => finishEdit(false)}>
               Avbryt
             </button>
           </form>
         ) : (
-          <h3 id={headingId} className="person-name">
-            {person.name}
-            {person.archived && <span className="muted"> (arkivert)</span>}
-          </h3>
-        )}
-        <div className="person-meta">
-          {done && <span className="badge done">Alt kjøpt</span>}
-          {gifts.length > 1 && (
-            <span className="person-total">
-              {gifts.length} gaver · {formatKr(total.purchased)} kjøpt
-              {hasBudget && <> · budsjett {formatKr(total.budget)}</>}
-            </span>
-          )}
-          {gifts.length === 0 && <span className="badge muted">Ingen gave i {year}</span>}
-        </div>
-        <div className="person-actions">
-          <button
-            onClick={() => {
-              const id = newId();
-              pendingFocusId = `gift-${id}`;
-              dispatch({ type: 'gift/add', personId: person.id, year, id });
-            }}
-          >
-            <span aria-hidden="true">+ </span>Ny gave<span className="visually-hidden"> til {person.name}</span>
-          </button>
-          {!editing && (
+          <div className="person-actions">
+            <button
+              onClick={() => {
+                const giftId = newId();
+                pendingFocusId = `gift-${giftId}`;
+                dispatch({ type: 'gift/add', personId: person.id, year, id: giftId });
+              }}
+            >
+              <span aria-hidden="true">+ </span>Ny gave<span className="visually-hidden"> til {person.name}</span>
+            </button>
             <button
               ref={editBtn}
               className="ghost"
@@ -264,28 +363,37 @@ function PersonCard({
             >
               Endre navn<span className="visually-hidden"> på {person.name}</span>
             </button>
-          )}
-          <button
-            className="ghost"
-            onClick={() => dispatch({ type: 'person/archive', id: person.id, archived: !person.archived })}
-          >
-            {person.archived ? 'Gjenopprett' : 'Arkiver'}
-            <span className="visually-hidden"> {person.name}</span>
-          </button>
-          <button
-            className="ghost danger"
-            onClick={() => {
-              if (confirm(`Slette ${person.name} og alle gaver for alle år?`))
-                dispatch({ type: 'person/delete', id: person.id });
-            }}
-          >
-            Slett<span className="visually-hidden"> {person.name}</span>
-          </button>
-        </div>
+            <button
+              className="ghost"
+              onClick={() => dispatch({ type: 'person/archive', id: person.id, archived: !person.archived })}
+            >
+              {person.archived ? 'Gjenopprett' : 'Arkiver'}
+              <span className="visually-hidden"> {person.name}</span>
+            </button>
+            <button
+              className="ghost danger"
+              onClick={() => {
+                if (confirm(`Slette ${person.name} og alle gaver for alle år?`))
+                  dispatch({ type: 'person/delete', id: person.id });
+              }}
+            >
+              Slett<span className="visually-hidden"> {person.name}</span>
+            </button>
+          </div>
+        )}
+        {gifts.map((g, idx) => (
+          <GiftCard
+            key={g.id}
+            gift={g}
+            index={idx + 1}
+            person={person}
+            year={year}
+            dispatch={dispatch}
+            moveTargets={moveTargets}
+            onMovedTo={(personId) => setCollapsed(personId, false)}
+          />
+        ))}
       </div>
-      {gifts.map((g, idx) => (
-        <GiftCard key={g.id} gift={g} index={idx + 1} personName={person.name} dispatch={dispatch} />
-      ))}
     </article>
   );
 }
@@ -293,67 +401,129 @@ function PersonCard({
 function GiftCard({
   gift,
   index,
-  personName,
+  person,
+  year,
   dispatch,
+  moveTargets,
+  onMovedTo,
 }: {
   gift: Gift;
   index: number;
-  personName: string;
+  person: Person;
+  year: number;
   dispatch: Dispatch<Action>;
+  moveTargets: MoveTarget[];
+  onMovedTo: (personId: string) => void;
 }) {
   const id = useId();
-  const titleRef = useFocusOnCreate<HTMLInputElement>(`gift-${gift.id}`);
+  const focusKey = `gift-${gift.id}`;
+  // En nyopprettet gave åpnes direkte i redigering.
+  const [editing, setEditing] = useState(() => pendingFocusId === focusKey);
+  const [draftTitle, setDraftTitle] = useState(gift.title);
+  const [draftBudget, setDraftBudget] = useState<number | null>(gift.budget);
+  const [budgetValid, setBudgetValid] = useState(true);
+  const titleRef = useFocusOnCreate<HTMLInputElement>(focusKey);
+  const { btnRef: editBtn, returnFocus } = useReturnFocus(editing);
   const addItemRef = useRef<HTMLButtonElement>(null);
   const bought = purchasedSum(gift);
   const planned = plannedSum(gift);
   const done = isGiftDone(gift);
-  const giftName = gift.title.trim() || `Gave ${index}`;
+  const giftName = giftLabel(gift, index);
+
+  const startEdit = () => {
+    setDraftTitle(gift.title);
+    setDraftBudget(gift.budget);
+    setBudgetValid(true);
+    setEditing(true);
+  };
+  useEffect(() => {
+    if (editing) titleRef.current?.focus();
+  }, [editing, titleRef]);
+
+  const stopEdit = () => {
+    returnFocus();
+    setEditing(false);
+  };
 
   return (
     <section className={`gift ${done ? 'is-done' : ''}`} aria-labelledby={`${id}-h`}>
-      <h4 id={`${id}-h`} className="visually-hidden">
-        {giftName} til {personName}
-      </h4>
-      <div className="gift-head">
-        <div className="field gift-title">
-          <label htmlFor={`${id}-title`}>Gave</label>
-          <input
-            id={`${id}-title`}
-            ref={titleRef}
-            value={gift.title}
-            placeholder={`Gave ${index}`}
-            onChange={(e) => dispatch({ type: 'gift/update', id: gift.id, patch: { title: e.target.value } })}
-          />
-        </div>
-        <div className="field budget">
-          <label htmlFor={`${id}-budget`}>Budsjett (kr)</label>
-          <MoneyInput
-            id={`${id}-budget`}
-            value={gift.budget}
-            allowEmpty
-            onChange={(v) => dispatch({ type: 'gift/update', id: gift.id, patch: { budget: v } })}
-          />
-        </div>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={gift.wrapped}
-            onChange={(e) => dispatch({ type: 'gift/update', id: gift.id, patch: { wrapped: e.target.checked } })}
-          />
-          Pakket inn
-        </label>
-        <button
-          className="ghost danger"
-          onClick={() => {
-            if (confirm(`Slette «${giftName}»?`)) dispatch({ type: 'gift/delete', id: gift.id });
+      {editing ? (
+        <form
+          className="gift-edit"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!budgetValid) return;
+            dispatch({ type: 'gift/update', id: gift.id, patch: { title: draftTitle.trim(), budget: draftBudget } });
+            stopEdit();
           }}
+          onKeyDown={(e) => e.key === 'Escape' && stopEdit()}
         >
-          Slett gave<span className="visually-hidden"> {giftName}</span>
-        </button>
-      </div>
+          <h4 id={`${id}-h`} className="visually-hidden">
+            Rediger {giftName} til {person.name}
+          </h4>
+          <div className="field gift-title">
+            <label htmlFor={`${id}-title`}>Navn på gave</label>
+            <input
+              id={`${id}-title`}
+              ref={titleRef}
+              value={draftTitle}
+              placeholder={`Gave ${index}`}
+              onChange={(e) => setDraftTitle(e.target.value)}
+            />
+          </div>
+          <div className="field budget">
+            <label htmlFor={`${id}-budget`}>Budsjett (kr)</label>
+            <MoneyInput
+              id={`${id}-budget`}
+              value={draftBudget}
+              allowEmpty
+              onChange={setDraftBudget}
+              onValidChange={setBudgetValid}
+            />
+          </div>
+          <div className="gift-edit-actions">
+            <button type="submit">Lagre</button>
+            <button type="button" className="ghost" onClick={stopEdit}>
+              Avbryt
+            </button>
+            <button
+              type="button"
+              className="ghost danger"
+              onClick={() => {
+                if (confirm(`Slette «${giftName}» og alle ting i den?`)) dispatch({ type: 'gift/delete', id: gift.id });
+              }}
+            >
+              Slett gave
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="gift-head">
+          <h4 id={`${id}-h`} className="gift-name">
+            {giftName}
+            <span className="visually-hidden"> til {person.name}</span>
+          </h4>
+          <div className="gift-head-actions">
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={gift.wrapped}
+                onChange={(e) =>
+                  dispatch({ type: 'gift/update', id: gift.id, patch: { wrapped: e.target.checked } })
+                }
+              />
+              Pakket inn
+            </label>
+            <button ref={editBtn} className="ghost" onClick={startEdit}>
+              Rediger<span className="visually-hidden"> {giftName}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <BudgetBar spent={bought} budget={gift.budget} name={giftName} />
-      <div className="gift-status" role="status">
+      <div className="gift-status">
         {planned !== bought && <span className="muted">Planlagt totalt: {formatKr(planned)}</span>}
         {done && <span className="badge done">Alt kjøpt</span>}
         {gift.wrapped && <span className="badge wrapped">Pakket inn</span>}
@@ -370,6 +540,7 @@ function GiftCard({
             <span className="center">Kjøpt</span>
             <span className="center">Mottatt</span>
             <span />
+            <span />
           </div>
           <ul className="items" aria-label={`Ting i ${giftName}`}>
             {gift.items.map((i, n) => (
@@ -377,9 +548,13 @@ function GiftCard({
                 key={i.id}
                 item={i}
                 index={n + 1}
-                giftId={gift.id}
+                gift={gift}
+                person={person}
+                year={year}
                 dispatch={dispatch}
-                onDeleted={() => addItemRef.current?.focus()}
+                moveTargets={moveTargets}
+                onMovedTo={onMovedTo}
+                onRemoved={() => addItemRef.current?.focus()}
               />
             ))}
           </ul>
@@ -400,24 +575,69 @@ function GiftCard({
   );
 }
 
+const NEW_GIFT = '__ny__';
+
 function ItemRow({
   item,
   index,
-  giftId,
+  gift,
+  person,
+  year,
   dispatch,
-  onDeleted,
+  moveTargets,
+  onMovedTo,
+  onRemoved,
 }: {
   item: Item;
   index: number;
-  giftId: string;
+  gift: Gift;
+  person: Person;
+  year: number;
   dispatch: Dispatch<Action>;
-  onDeleted: () => void;
+  moveTargets: MoveTarget[];
+  onMovedTo: (personId: string) => void;
+  onRemoved: () => void;
 }) {
   const id = useId();
+  const [moving, setMoving] = useState(false);
+  const [target, setTarget] = useState('');
   const nameRef = useFocusOnCreate<HTMLInputElement>(`item-${item.id}`);
-  const update = (patch: Partial<Omit<Item, 'id'>>) => dispatch({ type: 'item/update', giftId, id: item.id, patch });
+  const { btnRef: moveBtn, returnFocus } = useReturnFocus(moving);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const update = (patch: Partial<Omit<Item, 'id'>>) =>
+    dispatch({ type: 'item/update', giftId: gift.id, id: item.id, patch });
   const safeLink = /^https?:\/\//i.test(item.link) ? item.link : null;
   const itemName = item.name.trim() || `ting ${index}`;
+
+  useEffect(() => {
+    if (moving) selectRef.current?.focus();
+  }, [moving]);
+
+  const cancelMove = () => {
+    returnFocus();
+    setMoving(false);
+  };
+
+  const doMove = () => {
+    if (!target) return;
+    let toGiftId = target;
+    let toPersonId: string;
+    let toLabel: string;
+    if (target === NEW_GIFT) {
+      toGiftId = newId();
+      toPersonId = person.id;
+      toLabel = `ny gave til ${person.name}`;
+      dispatch({ type: 'gift/add', personId: person.id, year, id: toGiftId });
+    } else {
+      const group = moveTargets.find((t) => t.gifts.some((g) => g.id === target))!;
+      toPersonId = group.personId;
+      toLabel = `${group.gifts.find((g) => g.id === target)!.name} til ${group.personName}`;
+    }
+    pendingFocusId = `item-${item.id}`;
+    onMovedTo(toPersonId);
+    dispatch({ type: 'item/move', fromGiftId: gift.id, id: item.id, toGiftId });
+    announce(`«${itemName}» flyttet til ${toLabel}.`);
+  };
 
   return (
     <li className={`item ${item.purchased ? 'purchased' : ''}`}>
@@ -466,10 +686,20 @@ function ItemRow({
         </span>
       </label>
       <button
+        ref={moveBtn}
+        className="ghost f-move"
+        aria-expanded={moving}
+        aria-controls={`${id}-move`}
+        onClick={() => (moving ? cancelMove() : (setTarget(''), setMoving(true)))}
+      >
+        Flytt<span className="visually-hidden"> {itemName}</span>
+      </button>
+      <button
         className="ghost danger f-delete"
         onClick={() => {
-          dispatch({ type: 'item/delete', giftId, id: item.id });
-          onDeleted();
+          dispatch({ type: 'item/delete', giftId: gift.id, id: item.id });
+          announce(`«${itemName}» fjernet.`);
+          onRemoved();
         }}
       >
         <span aria-hidden="true" className="icon-only">
@@ -478,6 +708,48 @@ function ItemRow({
         <span className="delete-text">Fjern</span>
         <span className="visually-hidden"> {itemName}</span>
       </button>
+
+      {moving && (
+        <form
+          id={`${id}-move`}
+          className="move-panel"
+          onSubmit={(e) => {
+            e.preventDefault();
+            doMove();
+          }}
+          onKeyDown={(e) => e.key === 'Escape' && cancelMove()}
+        >
+          <div className="field">
+            <label htmlFor={`${id}-target`}>Flytt «{itemName}» til</label>
+            <select id={`${id}-target`} ref={selectRef} value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="" disabled>
+                Velg gave …
+              </option>
+              {moveTargets.map((t) => {
+                const options = t.gifts.filter((g) => g.id !== gift.id);
+                const isOwn = t.personId === person.id;
+                if (options.length === 0 && !isOwn) return null;
+                return (
+                  <optgroup key={t.personId} label={t.personName}>
+                    {options.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} ({t.personName})
+                      </option>
+                    ))}
+                    {isOwn && <option value={NEW_GIFT}>Ny gave til {t.personName}</option>}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </div>
+          <button type="submit" disabled={!target}>
+            Flytt
+          </button>
+          <button type="button" className="ghost" onClick={cancelMove}>
+            Avbryt
+          </button>
+        </form>
+      )}
     </li>
   );
 }
@@ -488,16 +760,22 @@ function MoneyInput({
   value,
   onChange,
   allowEmpty = false,
+  onValidChange,
 }: {
   id: string;
   value: number | null;
   onChange: (v: number | null) => void;
   allowEmpty?: boolean;
+  onValidChange?: (valid: boolean) => void;
 }) {
   const toText = (v: number | null) => (v == null ? '' : String(v).replace('.', ','));
   const [text, setText] = useState(toText(value));
   const [focused, setFocused] = useState(false);
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalidState] = useState(false);
+  const setInvalid = (v: boolean) => {
+    setInvalidState(v);
+    onValidChange?.(!v);
+  };
   const shown = focused || invalid ? text : toText(value);
   return (
     <>

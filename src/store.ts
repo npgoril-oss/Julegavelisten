@@ -21,6 +21,7 @@ export type Action =
   | { type: 'item/add'; giftId: Id; id?: Id }
   | { type: 'item/update'; giftId: Id; id: Id; patch: Partial<Omit<Item, 'id'>> }
   | { type: 'item/delete'; giftId: Id; id: Id }
+  | { type: 'item/move'; fromGiftId: Id; id: Id; toGiftId: Id }
   | { type: 'data/replace'; data: AppData };
 
 const mapGift = (data: AppData, id: Id, fn: (g: Gift) => Gift): AppData => ({
@@ -95,6 +96,22 @@ export function reducer(data: AppData, action: Action): AppData {
         ...g,
         items: g.items.filter((i) => i.id !== action.id),
       }));
+    case 'item/move': {
+      if (action.fromGiftId === action.toGiftId) return data;
+      const from = data.gifts.find((g) => g.id === action.fromGiftId);
+      const item = from?.items.find((i) => i.id === action.id);
+      if (!item || !data.gifts.some((g) => g.id === action.toGiftId)) return data;
+      return {
+        ...data,
+        gifts: data.gifts.map((g) =>
+          g.id === action.fromGiftId
+            ? { ...g, items: g.items.filter((i) => i.id !== action.id) }
+            : g.id === action.toGiftId
+              ? { ...g, items: [...g.items, item] }
+              : g,
+        ),
+      };
+    }
     case 'data/replace':
       return action.data;
   }

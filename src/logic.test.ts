@@ -90,3 +90,25 @@ describe('item-avkrysning', () => {
     expect(d.gifts[0].items[0]).toMatchObject({ purchased: false, received: false });
   });
 });
+
+describe('flytte ting mellom gaver', () => {
+  const setup = () => {
+    let d = reducer(emptyData(), { type: 'person/add', name: 'A' });
+    d = reducer(d, { type: 'person/add', name: 'B' });
+    d = reducer(d, { type: 'gift/add', personId: d.persons[0].id, year: 2026, id: 'g1' });
+    d = reducer(d, { type: 'gift/add', personId: d.persons[1].id, year: 2026, id: 'g2' });
+    d = reducer(d, { type: 'item/add', giftId: 'g1', id: 'i1' });
+    d = reducer(d, { type: 'item/update', giftId: 'g1', id: 'i1', patch: { name: 'Skjerf', price: 250, purchased: true } });
+    return d;
+  };
+  it('flytter item med alle felter til en annen persons gave', () => {
+    const d = reducer(setup(), { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'g2' });
+    expect(d.gifts.find((g) => g.id === 'g1')!.items).toHaveLength(0);
+    expect(d.gifts.find((g) => g.id === 'g2')!.items[0]).toMatchObject({ id: 'i1', name: 'Skjerf', price: 250, purchased: true });
+  });
+  it('gjør ingenting ved ukjent mål eller samme gave', () => {
+    const d = setup();
+    expect(reducer(d, { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'finnes-ikke' })).toBe(d);
+    expect(reducer(d, { type: 'item/move', fromGiftId: 'g1', id: 'i1', toGiftId: 'g1' })).toBe(d);
+  });
+});
