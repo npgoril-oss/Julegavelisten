@@ -194,82 +194,78 @@ h1 { font-size: 1.375rem; }
 .state-within .bar-fill { background: var(--done); }
 .state-over .bar-fill { background: var(--warn); }
 
-/* ---------- Items (mobil: kort) ---------- */
-.item-header { display: none; }
-.items { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+/* ---------- Ikoner ---------- */
+.icon { flex: none; display: block; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; padding: 0; min-width: 44px;
+  border-radius: 8px; color: var(--text); text-decoration: none;
+}
+a.icon-btn { border: 1px solid var(--control); color: var(--info); }
+.with-icon { display: inline-flex; align-items: center; gap: 6px; }
+.icon-group { display: flex; gap: 6px; }
+
+/* ---------- Items: kompakt visning ---------- */
+.items { display: flex; flex-direction: column; margin-top: 8px; border-top: 1px solid var(--divider); }
 .item {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    'name name'
-    'price price'
-    'link link'
-    'note note'
-    'bought received'
-    'move delete';
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
+    'main price'
+    'checks checks'
+    'actions actions';
+  gap: 2px 12px;
+  align-items: center;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--divider);
 }
-.item.purchased { background: var(--bg); }
-.f-name { grid-area: name; }
-.f-price { grid-area: price; }
-.f-link { grid-area: link; }
-.f-note { grid-area: note; }
-.f-bought { grid-area: bought; }
-.f-received { grid-area: received; }
-.f-move { grid-area: move; justify-self: start; }
-.f-delete { grid-area: delete; justify-self: start; }
+.item-main { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
+.item-name { font-weight: 600; overflow-wrap: anywhere; }
+.item.purchased .item-name { text-decoration: line-through; text-decoration-thickness: 1px; }
+.item-note { color: var(--muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+.item-price { grid-area: price; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.item-checks { grid-area: checks; display: flex; flex-wrap: wrap; gap: 0 16px; }
+.item-actions { grid-area: actions; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.item.editing { display: block; padding: 10px 2px; }
+.item-edit { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .move-panel {
   grid-column: 1 / -1;
-  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px;
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 6px;
   padding: 10px; border: 2px solid var(--focus); border-radius: 8px; background: var(--card);
 }
 .move-panel .field { flex: 1 1 220px; }
 button:disabled { opacity: 1; background: var(--track); color: var(--muted); cursor: not-allowed; }
-.f-delete .icon-only { display: none; }
-.link-row { display: flex; gap: 6px; }
-.open-link {
-  flex: none; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 44px; min-height: 44px; border: 1px solid var(--control); border-radius: 6px;
-  color: var(--info); text-decoration: none; font-size: 1.125rem;
-}
 .add-item {
   margin-top: 10px; background: transparent; color: var(--text);
-  border: 1px dashed var(--control); width: 100%;
+  border: 1px dashed var(--control); width: 100%; justify-content: center;
 }
 
 /* ---------- Bredere skjermer ---------- */
 @media (min-width: 560px) {
   .summary { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .gift-edit { grid-template-columns: 1fr 140px auto; }
-  .item { grid-template-areas: 'name name' 'price link' 'note note' 'bought received' 'move delete'; }
+  .item {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'main price price' 'checks checks actions';
+  }
+  .item-edit { grid-template-columns: 2fr 140px; }
+  .item-edit .f-link, .item-edit .f-note { grid-column: span 1; }
+  .item-edit .f-link { grid-column: 1 / 2; }
+  .item-edit .f-note { grid-column: 1 / -1; }
+  .item-edit .form-actions { grid-column: 1 / -1; }
   .add-item { width: auto; }
 }
 
 @media (min-width: 900px) {
-  .item-header, .item {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) 110px minmax(0, 1.5fr) minmax(0, 1.5fr) 64px 72px 72px 44px;
-    grid-template-areas: 'name price link note bought received move delete';
-    gap: 8px;
-    align-items: center;
+  .item {
+    grid-template-columns: minmax(0, 1fr) 110px auto auto;
+    grid-template-areas: 'main price checks actions';
   }
-  .item-header { padding: 0 10px; margin-top: 8px; font-size: 0.8125rem; color: var(--muted); }
-  .item-header .num { text-align: right; }
-  .item-header .center { text-align: center; }
-  .items { gap: 0; margin-top: 4px; }
-  .item { border: 0; border-radius: 0; border-top: 1px solid var(--divider); padding: 6px 10px; }
-  .field > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .gift-edit .field > label, .move-panel .field > label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
-  .f-price input { text-align: right; }
-  .f-bought, .f-received { justify-content: center; }
-  .f-bought > span, .f-received > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .f-move { justify-self: center; padding: 8px 10px; }
-  .f-delete { justify-self: center; padding: 8px; }
-  .f-delete .icon-only { display: inline; }
-  .f-delete .delete-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .item-price { text-align: right; }
+  .item-edit { grid-template-columns: minmax(0, 2fr) 130px minmax(0, 2fr); }
+  .item-edit .f-link { grid-column: auto; }
+  .item-edit .f-note { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

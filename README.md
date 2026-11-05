@@ -7,7 +7,10 @@ Oversikt over julegaver når man skal kjøpe til mange.
 - **Gaver** (en eller flere) per person per år, med valgfritt **budsjett** og avkrysning for **pakket inn**.
   Navn og budsjett vises som tekst og endres via «Rediger».
 - Personer kan **foldes sammen** (huskes på enheten). «Fold sammen alle» / «Vis alle».
-- **Flytt** en ting til en annen gave – også til en annen person eller til en ny gave.
+- **Flytt** en ting til en annen gave i samme år – også til en annen person eller til en ny gave.
+- Ting vises kompakt (navn, notat, pris, kjøpt/mottatt). Øvrige felt endres via «Rediger».
+  En ny ting åpnes i redigering; «Avbryt» på en tom, ny ting fjerner den.
+- Ikoner for ny, rediger, flytt, arkiver og slett. Ikonknapper har tilgjengelig navn og tooltip.
 - **Items** per gave: navn/beskrivelse, pris, notat, lenke, **kjøpt** og **mottatt**.
 - Viser sum kjøpt/bestilt, planlagt sum og status mot budsjett.
 - **Alt kjøpt**-status når alle items er kjøpt. Budsjettet påvirker ikke status, men vises som indikator:
