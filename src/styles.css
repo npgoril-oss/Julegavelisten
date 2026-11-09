@@ -15,6 +15,7 @@
   --focus: #1a56b8;
   --done: #1e6b3a;
   --done-bg: #e3f2e8;
+  --caution: #e0a800;    /* gul kant: alt kjøpt, men godt under budsjett (dekorativ, teksten sier det samme) */
   --warn: #8a4b00;
   --warn-bg: #fdf0dc;
   --info: #24477a;
@@ -45,6 +46,7 @@
     --focus: #8ab4ff;
     --done: #8fd6a6;
     --done-bg: #1d3526;
+    --caution: #f2c14e;
     --warn: #f4c07a;
     --warn-bg: #3b2c16;
     --info: #a9c3ee;
@@ -69,6 +71,7 @@
   --focus: #8ab4ff;
   --done: #8fd6a6;
   --done-bg: #1d3526;
+  --caution: #f2c14e;
   --warn: #f4c07a;
   --warn-bg: #3b2c16;
   --info: #a9c3ee;
@@ -290,6 +293,9 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 }
 .person.collapsed { padding-bottom: 4px; }
 .person.archived { background: var(--bg); }
+/* Alle gaver til personen er kjøpt: grønn bakgrunn og kant. */
+.person.is-done { background: var(--done-bg); border-color: var(--done); border-top-width: 3px; border-top-color: var(--done); }
+.person.is-done .badge.done { background: var(--done); color: var(--card); }
 .person-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -335,6 +341,7 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
   padding: 2px 4px 6px 6px;
 }
 .gift.is-done { border-left-color: var(--done); }
+.gift.is-done.is-under { border-left-color: var(--caution); }
 .gift-head {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center; column-gap: 2px;

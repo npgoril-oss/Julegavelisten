@@ -89,7 +89,7 @@ export function GiftCard({
   };
 
   return (
-    <SortableItem kind="gift" id={gift.id} parentId={person.id} label={giftName} className={`gift ${done ? 'is-done' : ''}`}>
+    <SortableItem kind="gift" id={gift.id} parentId={person.id} label={giftName} className={`gift ${done ? (info.state === 'under' ? 'is-done is-under' : 'is-done') : ''}`}>
       <div className="gift-head">
         {count > 1 && <DragHandle label={`Endre rekkefølge: ${giftName}`} />}
         <h4 className="gift-name">
