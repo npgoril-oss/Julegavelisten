@@ -96,7 +96,7 @@ export function PersonCard({
         (hasBudget ? ` av ${formatKr(total.budget)}` : ' kjøpt');
 
   return (
-    <SortableItem kind="person" id={person.id} label={person.name} className={`person ${person.archived ? 'archived' : ''} ${collapsed ? 'collapsed' : ''}`}>
+    <SortableItem kind="person" id={person.id} label={person.name} className={`person ${person.archived ? 'archived' : ''} ${collapsed ? 'collapsed' : ''} ${done ? 'is-done' : ''}`}>
       <div className="person-head">
         {count > 1 && <DragHandle label={`Endre rekkefølge: ${person.name}`} />}
         <h3 className="person-name">
@@ -115,8 +115,8 @@ export function PersonCard({
         </h3>
         <span className="person-total">
           {done && (
-            <span className="badge done" title="Alt kjøpt">
-              ✓<span className="visually-hidden"> Alt kjøpt.</span>
+            <span className="badge done">
+              <span aria-hidden="true">✓ </span>Alt kjøpt
             </span>
           )}
           {summaryText}
