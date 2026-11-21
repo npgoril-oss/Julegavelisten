@@ -54,6 +54,10 @@ GitHub Pages leverer bare de statiske filene og ser aldri dataene dine.
 
 Engangsoppsett i repoet: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
+**Installere på iPhone/iPad:** Åpne adressen i Safari, trykk Del-knappen og velg «Legg til på Hjem-skjerm».
+Appen viser denne veiledningen selv. NB: Safari og appen på Hjem-skjermen lagrer data hver for seg, så installer
+før du legger inn gaver, eller flytt dataene med sikkerhetskopi og «Gjenopprett fra fil».
+
 **Installere på Android:** Åpne adressen i Chrome. Velg deretter «Installer på hjemskjermen» under
 «Lagring og sikkerhetskopi», eller *⋮ → Installer app* i Chrome-menyen.
 
