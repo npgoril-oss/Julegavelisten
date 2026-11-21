@@ -79,6 +79,14 @@ function IosInstallHint({ hasData }: { hasData: boolean }) {
   );
 }
 
+const buildFmt = new Intl.DateTimeFormat('nb-NO', {
+  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+});
+const versionText = () => {
+  const built = Date.parse(__BUILD_TIME__);
+  return `Versjon ${__APP_VERSION__}${Number.isNaN(built) ? '' : ` · bygget ${buildFmt.format(built)}`}`;
+};
+
 const dateFmt = new Intl.DateTimeFormat('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function useInstallPrompt(onInstalled: () => void) {
@@ -228,6 +236,7 @@ export function StoragePanel({
             Velg Google Drive, iCloud Drive («Arkiver i Filer») eller en annen skytjeneste når delingsmenyen åpnes.
             Da overlever kopien selv om telefonen byttes eller nettleserdata slettes.
           </p>
+          <p className="muted small app-version">{versionText()}</p>
           <input
             ref={fileRef}
             type="file"
