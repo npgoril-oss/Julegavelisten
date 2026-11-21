@@ -21,6 +21,10 @@ export type MenuEntry =
  * «Flere valg»-meny som disclosure-mønster: en knapp som viser/skjuler en liste med vanlige knapper.
  * Enklere og mer robust for skjermlesere enn role="menu". Piltaster flytter mellom valgene,
  * Escape lukker og setter fokus tilbake på knappen.
+ *
+ * Bevisst uavhengig av fokus- og pointerdown-hendelser, som Safari på iPhone behandler annerledes
+ * (knapper får ikke fokus ved trykk). Menyen lukkes kun av: et valg, Escape, Tab, eller et klikk utenfor.
+ * Fokus flyttes inn i menyen bare når den åpnes med tastatur.
  */
 export function MoreMenu({
   label,
@@ -44,14 +48,17 @@ export function MoreMenu({
 
   const buttons = () => [...(listRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
 
+  const openedByKeyboard = useRef(false);
+
   useEffect(() => {
     if (!open) return;
-    buttons()[0]?.focus();
-    const onPointer = (e: PointerEvent) => {
+    if (openedByKeyboard.current) buttons()[0]?.focus();
+    // Lukk ved klikk utenfor. Klikket som åpnet menyen er allerede ferdig når denne registreres.
+    const onClick = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    document.addEventListener('pointerdown', onPointer);
-    return () => document.removeEventListener('pointerdown', onPointer);
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, [open]);
 
   const close = (refocus = true) => {
@@ -60,9 +67,15 @@ export function MoreMenu({
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
+    if (!open) return;
     if (e.key === 'Escape') {
       e.stopPropagation();
       close();
+      return;
+    }
+    if (e.key === 'Tab') {
+      // La fokus flytte seg som vanlig, men lukk menyen.
+      setOpen(false);
       return;
     }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
@@ -78,14 +91,7 @@ export function MoreMenu({
     <div
       className={`menu-wrap ${className}`}
       ref={wrapRef}
-      onBlur={(e) => {
-        // Lukk bare når fokus faktisk flyttes til noe utenfor menyen (f.eks. med Tab).
-        // Safari på iPhone gir ikke knapper fokus ved trykk, så der er relatedTarget null når man
-        // trykker på et menyvalg; å lukke da ville fjerne menyen før trykket blir registrert.
-        // Trykk utenfor menyen håndteres av pointerdown-lytteren over.
-        const next = e.relatedTarget as Node | null;
-        if (open && next && !wrapRef.current?.contains(next)) setOpen(false);
-      }}
+      onKeyDown={onKeyDown}
     >
       <IconButton
         ref={triggerRef}
@@ -93,10 +99,14 @@ export function MoreMenu({
         label={label}
         aria-expanded={open}
         aria-controls={`${id}-menu`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={(e) => {
+          // detail === 0: aktivert med tastatur (Enter/mellomrom), ikke med mus eller finger.
+          openedByKeyboard.current = e.detail === 0;
+          setOpen((o) => !o);
+        }}
       />
       {open && (
-        <ul id={`${id}-menu`} className="menu" ref={listRef} onKeyDown={onKeyDown}>
+        <ul id={`${id}-menu`} className="menu" ref={listRef}>
           {items.map((entry, i) =>
             entry === 'separator' ? (
               <li key={`sep-${i}`} className="menu-sep" aria-hidden="true" />
