@@ -79,7 +79,12 @@ export function MoreMenu({
       className={`menu-wrap ${className}`}
       ref={wrapRef}
       onBlur={(e) => {
-        if (open && !wrapRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
+        // Lukk bare når fokus faktisk flyttes til noe utenfor menyen (f.eks. med Tab).
+        // Safari på iPhone gir ikke knapper fokus ved trykk, så der er relatedTarget null når man
+        // trykker på et menyvalg; å lukke da ville fjerne menyen før trykket blir registrert.
+        // Trykk utenfor menyen håndteres av pointerdown-lytteren over.
+        const next = e.relatedTarget as Node | null;
+        if (open && next && !wrapRef.current?.contains(next)) setOpen(false);
       }}
     >
       <IconButton
