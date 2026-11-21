@@ -14,6 +14,71 @@ const isStandalone = () =>
   (window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true);
 
+/** iPhone/iPad (også iPad som gir seg ut for å være Mac). Der finnes ingen «Installer»-knapp. */
+export const isIOS = () =>
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+const IOS_HINT_KEY = 'julegavelisten:iosHintDismissed';
+
+/** Delingsikonet i Safari (firkant med pil opp), som tegn i teksten. */
+function ShareGlyph() {
+  return (
+    <svg className="share-glyph" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" />
+    </svg>
+  );
+}
+
+/** Veiledning for å installere på iPhone/iPad, og advarsel om at Safari og appen har hvert sitt lager. */
+function IosInstallHint({ hasData }: { hasData: boolean }) {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem(IOS_HINT_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  if (hidden) return null;
+  return (
+    <section className="notice info" aria-labelledby="ios-hint-title">
+      <div className="notice-text">
+        <h2 id="ios-hint-title" className="notice-title">
+          Bruk som app på iPhone
+        </h2>
+        <ol>
+          <li>
+            Trykk Del-knappen <ShareGlyph /> i Safari.
+          </li>
+          <li>Velg «Legg til på Hjem-skjerm» og trykk «Legg til».</li>
+          <li>Åpne Julegavelisten fra Hjem-skjermen.</li>
+        </ol>
+        <p className="small">
+          <strong>Viktig:</strong> Safari og appen på Hjem-skjermen lagrer data hver for seg.
+          {hasData
+            ? ' Ta sikkerhetskopi her først, og velg «Gjenopprett fra fil» i appen etterpå.'
+            : ' Installer derfor før du legger inn gaver.'}
+        </p>
+      </div>
+      <button
+        className="ghost"
+        onClick={() => {
+          try {
+            localStorage.setItem(IOS_HINT_KEY, '1');
+          } catch {
+            /* ikke kritisk */
+          }
+          setHidden(true);
+        }}
+      >
+        Skjul
+      </button>
+    </section>
+  );
+}
+
 const dateFmt = new Intl.DateTimeFormat('nb-NO', { day: 'numeric', month: 'long', year: 'numeric' });
 
 function useInstallPrompt(onInstalled: () => void) {
@@ -72,8 +137,8 @@ export function StoragePanel({
     markBackedUp();
     announce(
       result === 'shared'
-        ? 'Sikkerhetskopi delt. Husk å velge et sted utenfor telefonen, f.eks. Google Drive.'
-        : 'Sikkerhetskopi lastet ned til telefonen. Flytt den gjerne til Google Drive.',
+        ? 'Sikkerhetskopi delt. Husk å velge et sted utenfor telefonen, f.eks. Google Drive eller iCloud Drive.'
+        : 'Sikkerhetskopi lastet ned til telefonen. Flytt den gjerne til Google Drive eller iCloud Drive.',
     );
   };
 
@@ -95,6 +160,7 @@ export function StoragePanel({
           </button>
         </div>
       )}
+      {isIOS() && !installed && <IosInstallHint hasData={hasData} />}
       {!saveError && remind && (
         <div className="notice warn">
           <p>
@@ -118,7 +184,13 @@ export function StoragePanel({
             </div>
             <div>
               <dt>Installert som app</dt>
-              <dd>{installed ? 'Ja' : 'Nei – installer for å beskytte data og bruke appen uten nett'}</dd>
+              <dd>
+                {installed
+                  ? 'Ja'
+                  : isIOS()
+                    ? 'Nei – trykk Del og «Legg til på Hjem-skjerm» for å beskytte data og bruke appen uten nett'
+                    : 'Nei – installer for å beskytte data og bruke appen uten nett'}
+              </dd>
             </div>
             <div>
               <dt>Beskyttet mot automatisk opprydding</dt>
@@ -153,8 +225,8 @@ export function StoragePanel({
             )}
           </div>
           <p className="muted small">
-            Velg Google Drive (eller en annen skytjeneste) når delingsmenyen åpnes. Da overlever kopien selv om
-            telefonen byttes eller nettleserdata slettes.
+            Velg Google Drive, iCloud Drive («Arkiver i Filer») eller en annen skytjeneste når delingsmenyen åpnes.
+            Da overlever kopien selv om telefonen byttes eller nettleserdata slettes.
           </p>
           <input
             ref={fileRef}

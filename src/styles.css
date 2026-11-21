@@ -94,6 +94,7 @@ body {
   font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .app, .topbar-inner { max-width: 1000px; margin: 0 auto; }
+/* env(safe-area-inset-*) holder innholdet unna «hakk», avrundede hjørner og hjemlinjen på iPhone (0 ellers). */
 h1, h2, h3, h4, p, dl, dd, ul { margin: 0; }
 ul { padding: 0; list-style: none; }
 
@@ -171,9 +172,10 @@ button.icon-btn.ghost:hover { border-color: var(--control); }
   color: var(--pine-text);
   border-bottom: 4px solid var(--ribbon);
 }
+.topbar { padding-top: env(safe-area-inset-top); }
 .topbar-inner {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px;
-  padding: 12px 12px 10px;
+  padding: 12px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
 }
 h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.01em; }
 .countdown {
@@ -193,7 +195,10 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 
 /* ---------- PIN-lås ---------- */
 .lock-screen { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-.lock-body { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; }
+.lock-body {
+  flex: 1; display: flex; align-items: flex-start; justify-content: center;
+  padding: 32px max(16px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
 .lock-card {
   width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--divider); border-radius: 12px;
   padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
@@ -214,7 +219,9 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 }
 .pin-title { font-size: 1.0625rem; }
 .year select { width: auto; min-height: 40px; padding: 4px 8px; }
-.app { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.app {
+  padding: 12px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  display: flex; flex-direction: column; gap: 10px; }
 .empty { color: var(--muted); text-align: center; padding: 32px 0; }
 .empty-art { font-size: 2.25rem; letter-spacing: 0.2em; margin-bottom: 8px; }
 
@@ -258,6 +265,11 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   padding: 10px 12px; border-radius: 8px; border: 1px solid;
 }
+.notice.info { background: var(--info-bg); color: var(--text); border-color: var(--info); }
+.notice-title { font-size: 1rem; }
+.notice.info ol { margin: 4px 0 0; padding-left: 20px; }
+.notice.info .notice-text { flex: 1 1 240px; display: grid; gap: 4px; }
+.share-glyph { display: inline-block; vertical-align: -3px; }
 .notice.warn { background: var(--warn-bg); color: var(--text); border-color: var(--warn); }
 .notice.error { background: var(--card); color: var(--text); border: 2px solid var(--error); }
 .notice p { flex: 1 1 220px; }
@@ -271,7 +283,7 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 .storage-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .small { font-size: 0.875rem; }
 .update-toast {
-  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 40; margin: 0 auto; max-width: 520px;
+  position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 40; margin: 0 auto; max-width: 520px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px;
   background: var(--card); border: 2px solid var(--focus); border-radius: 10px; box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
 }
@@ -279,6 +291,8 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 
 /* ---------- Sortering ---------- */
 .drag-handle {
+  /* iPhone: ikke vis markering/forstørrelsesglass når man holder fingeren på håndtaket. */
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
   width: 28px; min-width: 28px; color: var(--muted);
   cursor: grab; touch-action: none; border-radius: 6px;
 }
@@ -302,7 +316,9 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
   grid-template-areas: 'handle name menu' '. total total';
   align-items: center; column-gap: 2px;
 }
-.person-head > .drag-handle { grid-area: handle; }
+.person-head > .drag-handle {
+  /* iPhone: ikke vis markering/forstørrelsesglass når man holder fingeren på håndtaket. */
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; grid-area: handle; }
 .person-head > .menu-wrap { grid-area: menu; }
 .person-name { grid-area: name; font-size: 1.0625rem; min-width: 0; }
 .person-toggle {
@@ -378,7 +394,9 @@ h1 { font: 700 1.45rem/1.2 Georgia, 'Times New Roman', serif; letter-spacing: 0.
 .item-legend { font-size: 0.75rem; color: var(--muted); padding: 2px 4px 0; }
 .item-legend .num { text-align: right; }
 .item-legend span:nth-child(5) { text-align: center; }
-.item > .drag-handle { height: 40px; }
+.item > .drag-handle {
+  /* iPhone: ikke vis markering/forstørrelsesglass når man holder fingeren på håndtaket. */
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; height: 40px; }
 .drop-before { box-shadow: inset 0 3px 0 0 var(--focus); }
 .gift-drop-target { border-radius: 8px; }
 .gift-drop-target.active .add-item { border-style: dashed; }
